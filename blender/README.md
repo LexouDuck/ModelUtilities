@@ -21,7 +21,7 @@ An existing icon is overwritten.
 
 ### Installing it (once)
 
-Locate the extension zip file `tmr_icons-1.0.0.zip` in this folder.
+Locate the extension zip file `tmr_icons-1.1.0.zip` in this folder.
 
 Then, in Blender: **Edit › Preferences › Get Extensions**, click the **⌄** menu in the top-right corner,
 choose **Install from Disk…** and pick the zip. (Dragging the zip onto the Blender window does the same.)
@@ -45,11 +45,13 @@ What gets captured:
 * no overlays (grid, bones, outlines, origins, gizmos), on a **transparent** background (switch **Transparent Background** off to keep the viewport background instead);
 * rendered off-screen at exactly 148 × 125 / 750 × 650, not a resized screenshot. The viewport's size and your screen resolution don't matter.
 
-Framing: the icon keeps the viewport's left-to-right view. The icon shapes are squarer than a typical viewport,
-so the icon shows a bit more above and below than the viewport does.
-Frame the model so it fills the viewport's width and it will fill the icon.
+Framing: the icon shows the viewport's full height. The icon shapes are squarer than a typical viewport,
+so the left and right edges of the viewport are cropped off.
+Frame the model so it fills the viewport's height and stays away from its left and right edges, and it will fill the icon.
+This also works in camera view (**Numpad 0**): the icon then shows the full height of the camera frame.
+To get the previous behaviour (full width, with extra space above and below), set **Fit Icon To** to *Viewport Width*.
 
-Settings (sizes, file name suffixes, transparency, naming the icon after the texture folder or the `.blend` folder, hiding the header buttons): **Edit › Preferences › Add-ons › TMR Icons**.
+Settings (sizes, file name suffixes, transparency, fitting to the viewport height or width, naming the icon after the texture folder or the `.blend` folder, hiding the header buttons): **Edit › Preferences › Add-ons › TMR Icons**.
 
 Other ways to use it, if you prefer:
 
