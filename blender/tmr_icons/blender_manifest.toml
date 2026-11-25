@@ -1,0 +1,17 @@
+schema_version = "1.0.0"
+
+id = "tmr_icons"
+version = "1.1.0"
+name = "TMR Icons"
+tagline = "One-click Models Resource icons from the 3D Viewport"
+maintainer = "LexouDuck"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+tags = ["3D View", "Render"]
+
+[permissions]
+files = "Save the icon PNG files next to the model folder"
