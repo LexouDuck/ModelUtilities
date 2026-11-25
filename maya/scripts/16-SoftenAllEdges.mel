@@ -1,0 +1,49 @@
+// SoftenAllEdges
+// Makes every edge of every polygon object have soft normal shading
+// (unlocks the normals first: can be turned off with the Options button)
+global proc int ModelUtilities_SoftenAllEdges()
+{
+    // unlock the normals first (imported models often have locked normals, which polySoftEdge can't change)
+    int $unlock = 1;
+    if (`optionVar -exists "ModelUtilities_unlockNormals"`)
+        $unlock = `optionVar -query "ModelUtilities_unlockNormals"`;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the meshes to change: all of them in the scene, or the selected ones
+    string $meshes[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        if (size($selection))
+            $meshes = `ls -long -dag -noIntermediate -type "mesh" $selection`;
+    }
+    else
+        $meshes = `ls -long -noIntermediate -type "mesh"`;
+    $meshes = stringArrayRemoveDuplicates($meshes);
+    if (size($meshes) == 0)
+    {
+        warning ("SoftenAllEdges: no meshes found" + $where);
+        return 0;
+    }
+    string $mesh;
+    for ($mesh in $meshes)
+    {
+        int $edges[] = `polyEvaluate -edge $mesh`;
+        if ($edges[0] == 0)
+            continue;
+        if ($unlock)
+            polyNormalPerVertex -unFreezeNormal true ($mesh + ".vtx[*]");
+        polySoftEdge -angle 180 -constructionHistory 1 ($mesh + ".e[*]");
+    }
+    print ("SoftenAllEdges: " + size($meshes) + " meshes softened" + $where + "\n");
+    return size($meshes);
+}
+undoInfo -openChunk;
+catch(ModelUtilities_SoftenAllEdges());
+undoInfo -closeChunk;

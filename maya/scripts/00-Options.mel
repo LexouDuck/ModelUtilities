@@ -1,0 +1,93 @@
+// Options
+// Opens the Model Utilities options window: which objects the scripts change (the whole scene,
+// or only the selected objects), and the settings of the scripts that have some.
+// The settings are saved in the Maya preferences (optionVar), so they are kept between sessions.
+global proc ModelUtilities_Options()
+{
+    // current settings
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    int $filterType = 3;
+    if (`optionVar -exists "ModelUtilities_filterType"`)
+        $filterType = `optionVar -query "ModelUtilities_filterType"`;
+    if ($filterType < 1 || $filterType > 5)
+        $filterType = 3;
+    float $distance = 0.001;
+    if (`optionVar -exists "ModelUtilities_mergeDistance"`)
+        $distance = `optionVar -query "ModelUtilities_mergeDistance"`;
+    int $unlock = 1;
+    if (`optionVar -exists "ModelUtilities_unlockNormals"`)
+        $unlock = `optionVar -query "ModelUtilities_unlockNormals"`;
+    int $perFace = 0;
+    if (`optionVar -exists "ModelUtilities_billboardPerFace"`)
+        $perFace = `optionVar -query "ModelUtilities_billboardPerFace"`;
+    string $camera = "persp";
+    if (`optionVar -exists "ModelUtilities_billboardCamera"`)
+        $camera = `optionVar -query "ModelUtilities_billboardCamera"`;
+
+    string $window = "ModelUtilitiesOptions";
+    if (`window -exists $window`)
+        deleteUI $window;
+    window -title "Model Utilities Options" -resizeToFitChildren true $window;
+    columnLayout -adjustableColumn true -rowSpacing 6 -columnAttach "both" 8;
+
+    text -label "" -height 2;
+    int $affectIndex = 1;
+    if ($affect == "selected")
+        $affectIndex = 2;
+    radioButtonGrp -label "Affect" -numberOfRadioButtons 2
+        -labelArray2 "Whole scene" "Selected objects" -select $affectIndex
+        -annotation "Which objects (and their materials and textures) the scripts change"
+        -onCommand1 "optionVar -stringValue \"ModelUtilities_affect\" \"all\""
+        -onCommand2 "optionVar -stringValue \"ModelUtilities_affect\" \"selected\""
+        ModelUtilitiesOptions_affect;
+
+    separator -style "in";
+    optionMenuGrp -label "FilterAllTextures"
+        -annotation "The texture filtering set by FilterAllTextures (UnfilterAllTextures sets 'Off')"
+        -changeCommand "optionVar -intValue \"ModelUtilities_filterType\" `optionMenuGrp -query -select ModelUtilitiesOptions_filter`"
+        ModelUtilitiesOptions_filter;
+        menuItem -label "Mipmap";
+        menuItem -label "Box";
+        menuItem -label "Quadratic";
+        menuItem -label "Quartic";
+        menuItem -label "Gaussian";
+    optionMenuGrp -edit -select $filterType ModelUtilitiesOptions_filter;
+
+    floatFieldGrp -label "MergeAllVertices" -extraLabel "distance" -numberOfFields 1 -precision 4
+        -value1 $distance
+        -annotation "Vertices closer than this distance are merged together"
+        -changeCommand "optionVar -floatValue \"ModelUtilities_mergeDistance\" `floatFieldGrp -query -value1 ModelUtilitiesOptions_distance`"
+        ModelUtilitiesOptions_distance;
+
+    checkBoxGrp -label "Soften / Harden" -numberOfCheckBoxes 1 -label1 "Unlock normals first"
+        -value1 $unlock
+        -annotation "Imported models often have locked normals, on which SoftenAllEdges / HardenAllEdges have no effect"
+        -changeCommand "optionVar -intValue \"ModelUtilities_unlockNormals\" `checkBoxGrp -query -value1 ModelUtilitiesOptions_unlock`"
+        ModelUtilitiesOptions_unlock;
+
+    separator -style "in";
+    radioButtonGrp -label "FaceCameraAlways" -numberOfRadioButtons 2
+        -labelArray2 "Per connected faces" "Per face" -select (1 + $perFace)
+        -annotation "Make one billboard per group of connected faces (e.g. a quad made of 2 triangles), or one per face"
+        -onCommand1 "optionVar -intValue \"ModelUtilities_billboardPerFace\" 0"
+        -onCommand2 "optionVar -intValue \"ModelUtilities_billboardPerFace\" 1"
+        ModelUtilitiesOptions_perFace;
+    optionMenuGrp -label "Aim at camera"
+        -annotation "The camera the billboards made by FaceCameraAlways always face"
+        -changeCommand "optionVar -stringValue \"ModelUtilities_billboardCamera\" `optionMenuGrp -query -value ModelUtilitiesOptions_camera`"
+        ModelUtilitiesOptions_camera;
+    string $cameraShapes[] = `ls -type "camera"`;
+    string $cameras[] = `listRelatives -parent $cameraShapes`;
+    string $item;
+    for ($item in $cameras)
+        menuItem -label $item;
+    if (stringArrayContains($camera, $cameras))
+        optionMenuGrp -edit -value $camera ModelUtilitiesOptions_camera;
+
+    separator -style "in";
+    button -label "Close" -command ("deleteUI " + $window);
+    showWindow $window;
+}
+ModelUtilities_Options();

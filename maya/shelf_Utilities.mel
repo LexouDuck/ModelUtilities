@@ -12,61 +12,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "AlphaNodeCorrect: Manually plugs in the output alpha of each texture node to its corresponding material node's input transparency.\nUse this if the parts of the model which should be transparent appear opaque." 
+        -annotation "Options: Opens the Model Utilities options window: which objects the scripts change (the whole scene,\nor only the selected objects), and the settings of the scripts that have some.\nThe settings are saved in the Maya preferences (optionVar), so they are kept between sessions."
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "AlphaNodeCorrect" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "Options"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "AlphaNodeCorrect" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "commandButton.png" 
-        -image1 "commandButton.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "Options"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "commandButton.png"
+        -image1 "commandButton.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $texture;\nstring $textures[];\nstring $phongs[] = `ls -type phong`;\nfor ($temp in $phongs)\n{\n    $textures = `listConnections -type file $temp`;\n    for ($texture in $textures)\n    {\n        connectAttr -f ($texture + \".outAlpha\") ($temp + \".transparencyR\");\n        connectAttr -f ($texture + \".outAlpha\") ($temp + \".transparencyG\");\n        connectAttr -f ($texture + \".outAlpha\") ($temp + \".transparencyB\");\n    }\n    setAttr ($texture + \".alphaGain\") -1;\n    setAttr ($texture + \".alphaOffset\") 1;\n}\nsetAttr \"hardwareRenderingGlobals.transparencyAlgorithm\" 3;" 
-        -sourceType "mel" 
-        -commandRepeatable 1
-        -flat 1
-    ;
-    shelfButton
-        -enableCommandRepeat 1
-        -enable 1
-        -width 35
-        -height 35
-        -manage 1
-        -visible 1
-        -preventOverride 0
-        -annotation "TransparencyCorrect: Make alpha channels work properly for imported models by setting 'alpha is luminance' to false.\nUse this when the entire model is more or less see-through, it will make the correct parts of the model opaque as they should be." 
-        -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "TransparencyCorrect" 
-        -labelOffset 0
-        -rotation 0
-        -flipX 0
-        -flipY 0
-        -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "TransparencyCorrect" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "commandButton.png" 
-        -image1 "commandButton.png" 
-        -style "iconOnly" 
-        -marginWidth 1
-        -marginHeight 1
-        -command "string $temp;\nstring $files[] = `ls -type file`;\nfor ($temp in $files)\n{\n    setAttr ($temp + \".alphaIsLuminance\") 0;\n}\nsetAttr \"hardwareRenderingGlobals.transparencyAlgorithm\" 3;\n" 
-        -sourceType "mel" 
+        -command "global proc ModelUtilities_Options()\n{\n    // current settings\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    int $filterType = 3;\n    if (`optionVar -exists \"ModelUtilities_filterType\"`)\n        $filterType = `optionVar -query \"ModelUtilities_filterType\"`;\n    if ($filterType < 1 || $filterType > 5)\n        $filterType = 3;\n    float $distance = 0.001;\n    if (`optionVar -exists \"ModelUtilities_mergeDistance\"`)\n        $distance = `optionVar -query \"ModelUtilities_mergeDistance\"`;\n    int $unlock = 1;\n    if (`optionVar -exists \"ModelUtilities_unlockNormals\"`)\n        $unlock = `optionVar -query \"ModelUtilities_unlockNormals\"`;\n    int $perFace = 0;\n    if (`optionVar -exists \"ModelUtilities_billboardPerFace\"`)\n        $perFace = `optionVar -query \"ModelUtilities_billboardPerFace\"`;\n    string $camera = \"persp\";\n    if (`optionVar -exists \"ModelUtilities_billboardCamera\"`)\n        $camera = `optionVar -query \"ModelUtilities_billboardCamera\"`;\n\n    string $window = \"ModelUtilitiesOptions\";\n    if (`window -exists $window`)\n        deleteUI $window;\n    window -title \"Model Utilities Options\" -resizeToFitChildren true $window;\n    columnLayout -adjustableColumn true -rowSpacing 6 -columnAttach \"both\" 8;\n\n    text -label \"\" -height 2;\n    int $affectIndex = 1;\n    if ($affect == \"selected\")\n        $affectIndex = 2;\n    radioButtonGrp -label \"Affect\" -numberOfRadioButtons 2\n        -labelArray2 \"Whole scene\" \"Selected objects\" -select $affectIndex\n        -annotation \"Which objects (and their materials and textures) the scripts change\"\n        -onCommand1 \"optionVar -stringValue \\\"ModelUtilities_affect\\\" \\\"all\\\"\"\n        -onCommand2 \"optionVar -stringValue \\\"ModelUtilities_affect\\\" \\\"selected\\\"\"\n        ModelUtilitiesOptions_affect;\n\n    separator -style \"in\";\n    optionMenuGrp -label \"FilterAllTextures\"\n        -annotation \"The texture filtering set by FilterAllTextures (UnfilterAllTextures sets 'Off')\"\n        -changeCommand \"optionVar -intValue \\\"ModelUtilities_filterType\\\" `optionMenuGrp -query -select ModelUtilitiesOptions_filter`\"\n        ModelUtilitiesOptions_filter;\n        menuItem -label \"Mipmap\";\n        menuItem -label \"Box\";\n        menuItem -label \"Quadratic\";\n        menuItem -label \"Quartic\";\n        menuItem -label \"Gaussian\";\n    optionMenuGrp -edit -select $filterType ModelUtilitiesOptions_filter;\n\n    floatFieldGrp -label \"MergeAllVertices\" -extraLabel \"distance\" -numberOfFields 1 -precision 4\n        -value1 $distance\n        -annotation \"Vertices closer than this distance are merged together\"\n        -changeCommand \"optionVar -floatValue \\\"ModelUtilities_mergeDistance\\\" `floatFieldGrp -query -value1 ModelUtilitiesOptions_distance`\"\n        ModelUtilitiesOptions_distance;\n\n    checkBoxGrp -label \"Soften / Harden\" -numberOfCheckBoxes 1 -label1 \"Unlock normals first\"\n        -value1 $unlock\n        -annotation \"Imported models often have locked normals, on which SoftenAllEdges / HardenAllEdges have no effect\"\n        -changeCommand \"optionVar -intValue \\\"ModelUtilities_unlockNormals\\\" `checkBoxGrp -query -value1 ModelUtilitiesOptions_unlock`\"\n        ModelUtilitiesOptions_unlock;\n\n    separator -style \"in\";\n    radioButtonGrp -label \"FaceCameraAlways\" -numberOfRadioButtons 2\n        -labelArray2 \"Per connected faces\" \"Per face\" -select (1 + $perFace)\n        -annotation \"Make one billboard per group of connected faces (e.g. a quad made of 2 triangles), or one per face\"\n        -onCommand1 \"optionVar -intValue \\\"ModelUtilities_billboardPerFace\\\" 0\"\n        -onCommand2 \"optionVar -intValue \\\"ModelUtilities_billboardPerFace\\\" 1\"\n        ModelUtilitiesOptions_perFace;\n    optionMenuGrp -label \"Aim at camera\"\n        -annotation \"The camera the billboards made by FaceCameraAlways always face\"\n        -changeCommand \"optionVar -stringValue \\\"ModelUtilities_billboardCamera\\\" `optionMenuGrp -query -value ModelUtilitiesOptions_camera`\"\n        ModelUtilitiesOptions_camera;\n    string $cameraShapes[] = `ls -type \"camera\"`;\n    string $cameras[] = `listRelatives -parent $cameraShapes`;\n    string $item;\n    for ($item in $cameras)\n        menuItem -label $item;\n    if (stringArrayContains($camera, $cameras))\n        optionMenuGrp -edit -value $camera ModelUtilitiesOptions_camera;\n\n    separator -style \"in\";\n    button -label \"Close\" -command (\"deleteUI \" + $window);\n    showWindow $window;\n}\nModelUtilities_Options();"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -78,9 +45,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -91,28 +58,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "UnfilterAllTextures: Sets every image texture in the scene to be unfiltered (ie: aliased, pixelated)" 
+        -annotation "AlphaNodeCorrect: Plugs the transparency of each material's texture (from its alpha channel) into the material's transparency.\nUse this if the parts of the model which should be transparent appear opaque."
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "UnfilterAllTextures" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "AlphaNodeCorrect"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "UnfilterAllTextures" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "texturePlacement.png" 
-        -image1 "texturePlacement.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "AlphaNodeCorrect"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "commandButton.png"
+        -image1 "commandButton.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $files[] = `ls -type file`;\nfor ($temp in $files)\n{\n    setAttr ($temp + \".filterType\") 0;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_AlphaNodeCorrect()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    if (size($materials) == 0)\n    {\n        warning (\"AlphaNodeCorrect: no materials found\" + $where);\n        return 0;\n    }\n    int $count = 0;\n    string $material;\n    for ($material in $materials)\n    {\n        // the texture plugged into the material's color, or else the first texture of its network\n        string $textures[] = `listConnections -source true -destination false -type \"file\" ($material + \".color\")`;\n        if (size($textures) == 0)\n        {\n            string $history[] = `listHistory $material`;\n            $textures = `ls -type \"file\" $history`;\n        }\n        if (size($textures) == 0)\n            continue;\n        string $texture = $textures[0];\n        // undo the alpha inversion done by the previous version of this script (alphaGain -1, alphaOffset 1),\n        // since outTransparency already is (1 - alpha)\n        if (`getAttr ($texture + \".alphaGain\")` == -1 && `getAttr ($texture + \".alphaOffset\")` == 1)\n        {\n            setAttr ($texture + \".alphaGain\") 1;\n            setAttr ($texture + \".alphaOffset\") 0;\n        }\n        connectAttr -force ($texture + \".outTransparency\") ($material + \".transparency\");\n        $count++;\n    }\n    // depth peeling: transparent faces are sorted correctly in the viewport\n    setAttr \"hardwareRenderingGlobals.transparencyAlgorithm\" 3;\n    print (\"AlphaNodeCorrect: \" + $count + \" of \" + size($materials) + \" materials changed\" + $where + \"\\n\");\n    return $count;\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_AlphaNodeCorrect());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -124,28 +91,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "FilterAllTextures: Sets every image texture in the scene to have quadratic bilinear filtering" 
+        -annotation "TransparencyCorrect: Make alpha channels work properly for imported models by setting 'alpha is luminance' to false.\nUse this when the entire model is more or less see-through, it will make the correct parts of the model opaque as they should be."
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "FilterAllTextures" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "TransparencyCorrect"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "FilterAllTextures" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "texturePlacement.png" 
-        -image1 "texturePlacement.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "TransparencyCorrect"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "commandButton.png"
+        -image1 "commandButton.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $files[] = `ls -type file`;\nfor ($temp in $files)\n{\n    setAttr ($temp + \".filterType\") 3;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_TransparencyCorrect()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the file textures to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $files[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $files = `ls -type \"file\" $history`;\n        }\n    }\n    else\n        $files = `ls -type \"file\"`;\n    if (size($files) == 0)\n    {\n        warning (\"TransparencyCorrect: no file textures found\" + $where);\n        return 0;\n    }\n    string $file;\n    for ($file in $files)\n        setAttr ($file + \".alphaIsLuminance\") 0;\n    // depth peeling: transparent faces are sorted correctly in the viewport\n    setAttr \"hardwareRenderingGlobals.transparencyAlgorithm\" 3;\n    print (\"TransparencyCorrect: \" + size($files) + \" textures changed\" + $where + \"\\n\");\n    return size($files);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_TransparencyCorrect());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -157,9 +124,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -170,28 +137,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "MirrorAllTextureUVs: Make it so all UV nodes in the scene have U & V mirrored texture space" 
+        -annotation "UnfilterAllTextures: Sets every image texture to be unfiltered (ie: aliased, pixelated)"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "MirrorAllTextureUVs" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "UnfilterAllTextures"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "MirrorAllTextureUVs" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "UVEditorUV.png" 
-        -image1 "UVEditorUV.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "UnfilterAllTextures"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "texturePlacement.png"
+        -image1 "texturePlacement.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $textures[] = `ls -type place2dTexture`;\nfor ($temp in $textures)\n{\n    setAttr ($temp + \".mirrorU\") 1;\n    setAttr ($temp + \".mirrorV\") 1;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_UnfilterAllTextures()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the file textures to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $files[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $files = `ls -type \"file\" $history`;\n        }\n    }\n    else\n        $files = `ls -type \"file\"`;\n    if (size($files) == 0)\n    {\n        warning (\"UnfilterAllTextures: no file textures found\" + $where);\n        return 0;\n    }\n    string $file;\n    for ($file in $files)\n        setAttr ($file + \".filterType\") 0;\n    print (\"UnfilterAllTextures: \" + size($files) + \" textures unfiltered\" + $where + \"\\n\");\n    return size($files);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_UnfilterAllTextures());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -203,28 +170,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "UnMirrorAllTextureUVs: Make all UV nodes in the scene have U & V mirroring set to false" 
+        -annotation "FilterAllTextures: Sets every image texture to be filtered (smooth): quadratic filtering by default,\nthe filter type can be changed with the Options button (Mipmap, Box, Quadratic, Quartic, Gaussian)."
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "UnMirrorAllTextureUVs" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "FilterAllTextures"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "UnMirrorAllTextureUVs" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "UVEditorUV.png" 
-        -image1 "UVEditorUV.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "FilterAllTextures"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "texturePlacement.png"
+        -image1 "texturePlacement.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $textures[] = `ls -type place2dTexture`;\nfor ($temp in $textures)\n{\n    setAttr ($temp + \".mirrorU\") 0;\n    setAttr ($temp + \".mirrorV\") 0;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_FilterAllTextures()\n{\n    // filter type: 1 Mipmap, 2 Box, 3 Quadratic, 4 Quartic, 5 Gaussian (set with the Options button)\n    int $filterType = 3;\n    if (`optionVar -exists \"ModelUtilities_filterType\"`)\n        $filterType = `optionVar -query \"ModelUtilities_filterType\"`;\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the file textures to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $files[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $files = `ls -type \"file\" $history`;\n        }\n    }\n    else\n        $files = `ls -type \"file\"`;\n    if (size($files) == 0)\n    {\n        warning (\"FilterAllTextures: no file textures found\" + $where);\n        return 0;\n    }\n    string $file;\n    for ($file in $files)\n        setAttr ($file + \".filterType\") $filterType;\n    print (\"FilterAllTextures: \" + size($files) + \" textures filtered\" + $where + \"\\n\");\n    return size($files);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_FilterAllTextures());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -236,9 +203,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -249,28 +216,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "TileAllTextureUVs: Make it so all UV nodes in the scene have repeating tiled texture space" 
+        -annotation "MirrorAllTextureUVs: Make it so all UV nodes have U & V mirrored texture space"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "TileAllTextureUVs" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "MirrorAllTextureUVs"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "TileAllTextureUVs" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "UVEditorShell.png" 
-        -image1 "UVEditorShell.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "MirrorAllTextureUVs"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "UVEditorUV.png"
+        -image1 "UVEditorUV.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $textures[] = `ls -type place2dTexture`;\nfor ($temp in $textures)\n{\n    setAttr ($temp + \".wrapU\") 1;\n    setAttr ($temp + \".wrapV\") 1;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_MirrorAllTextureUVs()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the texture placement (place2dTexture) nodes to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $placements[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $placements = `ls -type \"place2dTexture\" $history`;\n        }\n    }\n    else\n        $placements = `ls -type \"place2dTexture\"`;\n    if (size($placements) == 0)\n    {\n        warning (\"MirrorAllTextureUVs: no texture placement (place2dTexture) nodes found\" + $where);\n        return 0;\n    }\n    string $placement;\n    for ($placement in $placements)\n    {\n        setAttr ($placement + \".mirrorU\") 1;\n        setAttr ($placement + \".mirrorV\") 1;\n    }\n    print (\"MirrorAllTextureUVs: \" + size($placements) + \" textures mirrored\" + $where + \"\\n\");\n    return size($placements);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_MirrorAllTextureUVs());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -282,28 +249,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "UnTileAllTextureUVs: Make it so all UV nodes in the scene only have texture space within the 0-1 UV square, so the outside of this UV space is a solid color" 
+        -annotation "UnMirrorAllTextureUVs: Make all UV nodes have U & V mirroring set to false"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "UnTileAllTextureUVs" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "UnMirrorAllTextureUVs"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "UnTileAllTextureUVs" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "UVEditorShell.png" 
-        -image1 "UVEditorShell.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "UnMirrorAllTextureUVs"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "UVEditorUV.png"
+        -image1 "UVEditorUV.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $textures[] = `ls -type place2dTexture`;\nfor ($temp in $textures)\n{\n    setAttr ($temp + \".wrapU\") 0;\n    setAttr ($temp + \".wrapV\") 0;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_UnMirrorAllTextureUVs()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the texture placement (place2dTexture) nodes to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $placements[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $placements = `ls -type \"place2dTexture\" $history`;\n        }\n    }\n    else\n        $placements = `ls -type \"place2dTexture\"`;\n    if (size($placements) == 0)\n    {\n        warning (\"UnMirrorAllTextureUVs: no texture placement (place2dTexture) nodes found\" + $where);\n        return 0;\n    }\n    string $placement;\n    for ($placement in $placements)\n    {\n        setAttr ($placement + \".mirrorU\") 0;\n        setAttr ($placement + \".mirrorV\") 0;\n    }\n    print (\"UnMirrorAllTextureUVs: \" + size($placements) + \" textures unmirrored\" + $where + \"\\n\");\n    return size($placements);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_UnMirrorAllTextureUVs());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -315,9 +282,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -328,28 +295,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "ShowVertexColors: Make all objects in the scene display their polygon vertex colors" 
+        -annotation "TileAllTextureUVs: Make it so all UV nodes have repeating tiled texture space"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "ShowVertexColors" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "TileAllTextureUVs"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "ShowVertexColors" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "polyColorMaterialAmbient.png" 
-        -image1 "polyColorMaterialAmbient.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "TileAllTextureUVs"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "UVEditorShell.png"
+        -image1 "UVEditorShell.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $shapes[] = `ls -type shape`;\nfor ($temp in $shapes)\n{\n    if (`attributeQuery -node $temp -exists displayColors`)\n    {\n        setAttr ($temp + \".displayColors\") 1;\n        select -r $temp;\n        polyOptions -colorMaterialChannel ambient;\n        polyOptions -materialBlend multiply;\n    }\n}\n" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_TileAllTextureUVs()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the texture placement (place2dTexture) nodes to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $placements[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $placements = `ls -type \"place2dTexture\" $history`;\n        }\n    }\n    else\n        $placements = `ls -type \"place2dTexture\"`;\n    if (size($placements) == 0)\n    {\n        warning (\"TileAllTextureUVs: no texture placement (place2dTexture) nodes found\" + $where);\n        return 0;\n    }\n    string $placement;\n    for ($placement in $placements)\n    {\n        setAttr ($placement + \".wrapU\") 1;\n        setAttr ($placement + \".wrapV\") 1;\n    }\n    print (\"TileAllTextureUVs: \" + size($placements) + \" textures tiled\" + $where + \"\\n\");\n    return size($placements);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_TileAllTextureUVs());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -361,127 +328,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "HideVertexColors: Make all objects in the scene hide their polygon colors" 
+        -annotation "UnTileAllTextureUVs: Make it so all UV nodes only have texture space within the 0-1 UV square, so the outside of this UV space is a solid color"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "HideVertexColors" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "UnTileAllTextureUVs"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "HideVertexColors" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "polyColorMaterialAmbientDiffuse.png" 
-        -image1 "polyColorMaterialAmbientDiffuse.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "UnTileAllTextureUVs"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "UVEditorShell.png"
+        -image1 "UVEditorShell.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nstring $shapes[] = `ls -type shape`;\nfor ($temp in $shapes)\n{\n    if (`attributeQuery -node $temp -exists displayColors`)\n    {\n        setAttr ($temp + \".displayColors\") 1;\n        select -r $temp;\n        polyOptions -colorMaterialChannel ambient;\n        polyOptions -materialBlend multiply;\n    }\n}\n" 
-        -sourceType "mel" 
-        -commandRepeatable 1
-        -flat 1
-    ;
-    shelfButton
-        -enableCommandRepeat 1
-        -enable 1
-        -width 35
-        -height 35
-        -manage 1
-        -visible 1
-        -preventOverride 0
-        -annotation "NoShade: Make all materials full-lit 100% diffuse" 
-        -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "NoShade" 
-        -labelOffset 0
-        -rotation 0
-        -flipX 0
-        -flipY 0
-        -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "NoShade" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "toonBrightness2.png" 
-        -image1 "toonBrightness2.png" 
-        -style "iconOnly" 
-        -marginWidth 1
-        -marginHeight 1
-        -command "string $temp;\nstring $phongs[] = `ls -type phong`;\nfor ($temp in $phongs)\n{\n    setAttr ($temp + \".diffuse\") 0;\n    setAttr ($temp + \".incandescence\") -type double3 0 0 0 ;\n    setAttr ($temp + \".ambientColor\") -type double3 1 1 1 ;\n    setAttr ($temp + \".specularColor\") -type double3 0 0 0 ;\n}" 
-        -sourceType "mel" 
-        -commandRepeatable 1
-        -flat 1
-    ;
-    shelfButton
-        -enableCommandRepeat 1
-        -enable 1
-        -width 35
-        -height 35
-        -manage 1
-        -visible 1
-        -preventOverride 0
-        -annotation "Incandesce: Makes every material in the scene have its Incandescence to white (1, 1, 1).\\nThis might be useful to have 'NoShade' rendering on the Maya default legacy viewport." 
-        -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "Incandesce" 
-        -labelOffset 0
-        -rotation 0
-        -flipX 0
-        -flipY 0
-        -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "Incandesce" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "toonSolid.png" 
-        -image1 "toonSolid.png" 
-        -style "iconOnly" 
-        -marginWidth 1
-        -marginHeight 1
-        -command "string $temp;\nstring $phongs[] = `ls -type phong`;\nfor ($temp in $phongs)\n{\n    setAttr ($temp + \".incandescence\") -type double3 1 1 1 ;\n}" 
-        -sourceType "mel" 
-        -commandRepeatable 1
-        -flat 1
-    ;
-    shelfButton
-        -enableCommandRepeat 1
-        -enable 1
-        -width 35
-        -height 35
-        -manage 1
-        -visible 1
-        -preventOverride 0
-        -annotation "CelShade: Make every material's ambient lighting use a simple 3-step ramp shader" 
-        -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "CelShade" 
-        -labelOffset 0
-        -rotation 0
-        -flipX 0
-        -flipY 0
-        -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "CelShade" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "toonBrightness3.png" 
-        -image1 "toonBrightness3.png" 
-        -style "iconOnly" 
-        -marginWidth 1
-        -marginHeight 1
-        -command "string $celshader = `shadingNode -asShader rampShader`;\nsetAttr ($celshader + \".environment[0].environment_Color\") -type double3 0.1 0.1 0.1;\nsetAttr ($celshader + \".environment[0].environment_Position\") 0.05;\nsetAttr ($celshader + \".environment[0].environment_Interp\") 0;\nsetAttr ($celshader + \".environment[1].environment_Color\") -type double3 0.5 0.5 0.5;\nsetAttr ($celshader + \".environment[1].environment_Position\") 0.25;\nsetAttr ($celshader + \".environment[1].environment_Interp\") 0;\nsetAttr ($celshader + \".environment[2].environment_Color\") -type double3 1.0 1.0 1.0;\nsetAttr ($celshader + \".environment[2].environment_Position\") 0.50;\nsetAttr ($celshader + \".environment[2].environment_Interp\") 0;\nstring $temp;\nstring $phongs[] = `ls -type phong`;\nfor ($temp in $phongs)\n{\n    connectAttr -f ($celshader + \".outColor\") ($temp + \".ambientColor\");\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_UnTileAllTextureUVs()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    // the texture placement (place2dTexture) nodes to change: all of them in the scene, or the ones used by the selected objects' materials\n    string $placements[];\n    if ($affect == \"selected\")\n    {\n        if (size($materials))\n        {\n            string $history[] = `listHistory $materials`;\n            $placements = `ls -type \"place2dTexture\" $history`;\n        }\n    }\n    else\n        $placements = `ls -type \"place2dTexture\"`;\n    if (size($placements) == 0)\n    {\n        warning (\"UnTileAllTextureUVs: no texture placement (place2dTexture) nodes found\" + $where);\n        return 0;\n    }\n    string $placement;\n    for ($placement in $placements)\n    {\n        setAttr ($placement + \".wrapU\") 0;\n        setAttr ($placement + \".wrapV\") 0;\n    }\n    print (\"UnTileAllTextureUVs: \" + size($placements) + \" textures untiled\" + $where + \"\\n\");\n    return size($placements);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_UnTileAllTextureUVs());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -493,9 +361,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -506,28 +374,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "MergeAllVertices: Merges together any vertices that are within 0.001 distance of each other" 
+        -annotation "ShowVertexColors: Make all objects display their polygon vertex colors (multiplied with their material's ambient color)"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "MergeAllVertices" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "ShowVertexColors"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "MergeAllVertices" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "polyMergeVertex.png" 
-        -image1 "polyMergeVertex.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "ShowVertexColors"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "polyColorMaterialAmbient.png"
+        -image1 "polyColorMaterialAmbient.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nint $vertices[];\nstring $shapes[] = `ls -exactType transform`;\nfor ($temp in $shapes)\n{\n    print ($temp + \" -> \");\n    if ($temp != \"persp\" &&\n        $temp != \"front\" &&\n        $temp != \"side\" &&\n        $temp != \"top\")\n    {\n        $vertices = `polyEvaluate -vertex $temp`;\n        print ($vertices);\n        polyMergeVertex -ch 1 -d 0.001 ($temp + \".vtx[0:\" + $vertices[0] + \"]\");\n    }\n\telse print \"none\\n\";\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_ShowVertexColors()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the meshes to change: all of them in the scene, or the selected ones\n    string $meshes[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        if (size($selection))\n            $meshes = `ls -long -dag -noIntermediate -type \"mesh\" $selection`;\n    }\n    else\n        $meshes = `ls -long -noIntermediate -type \"mesh\"`;\n    $meshes = stringArrayRemoveDuplicates($meshes);\n    if (size($meshes) == 0)\n    {\n        warning (\"ShowVertexColors: no meshes found\" + $where);\n        return 0;\n    }\n    // polyOptions works on the selection: select each mesh in turn, then restore the selection\n    string $previousSelection[] = `ls -selection`;\n    string $mesh;\n    for ($mesh in $meshes)\n    {\n        setAttr ($mesh + \".displayColors\") 1;\n        select -replace $mesh;\n        polyOptions -colorMaterialChannel \"ambient\" -materialBlend \"multiply\";\n    }\n    if (size($previousSelection))\n        select -replace $previousSelection;\n    else\n        select -clear;\n    print (\"ShowVertexColors: \" + size($meshes) + \" meshes\" + $where + \"\\n\");\n    return size($meshes);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_ShowVertexColors());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -539,28 +407,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "SoftenAllEdges: Makes every edge of every polygon object have soft normal shading" 
+        -annotation "HideVertexColors: Make all objects hide their polygon vertex colors"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "SoftenAllEdges" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "HideVertexColors"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "SoftenAllEdges" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "polySoftEdge.png" 
-        -image1 "polySoftEdge.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "HideVertexColors"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "polyColorMaterialAmbientDiffuse.png"
+        -image1 "polyColorMaterialAmbientDiffuse.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nint $edges[];\nstring $shapes[] = `ls -exactType transform`;\nfor ($temp in $shapes)\n{\n    print ($temp + \" -> \");\n    if ($temp != \"persp\" &&\n        $temp != \"front\" &&\n        $temp != \"side\" &&\n        $temp != \"top\")\n    {\n        $edges = `polyEvaluate -edge $temp`;\n        print ($edges);\n        polySoftEdge -ch 1 -a 180 ($temp + \".e[0:\" + $edges[0] + \"]\");\n    }\n\telse print \"none\\n\";\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_HideVertexColors()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the meshes to change: all of them in the scene, or the selected ones\n    string $meshes[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        if (size($selection))\n            $meshes = `ls -long -dag -noIntermediate -type \"mesh\" $selection`;\n    }\n    else\n        $meshes = `ls -long -noIntermediate -type \"mesh\"`;\n    $meshes = stringArrayRemoveDuplicates($meshes);\n    if (size($meshes) == 0)\n    {\n        warning (\"HideVertexColors: no meshes found\" + $where);\n        return 0;\n    }\n    string $mesh;\n    for ($mesh in $meshes)\n        setAttr ($mesh + \".displayColors\") 0;\n    print (\"HideVertexColors: \" + size($meshes) + \" meshes\" + $where + \"\\n\");\n    return size($meshes);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_HideVertexColors());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -572,28 +440,127 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "HardenAllEdges: Makes every edge of every polygon object have hard polygonal normal shading" 
+        -annotation "NoShade: Make all materials full-lit 100% diffuse (shows the texture as is, with no lighting)\nRestoreShading puts the materials back the way they were."
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "HardenAllEdges" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "NoShade"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "HardenAllEdges" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "polyHardEdge.png" 
-        -image1 "polyHardEdge.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "NoShade"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "toonBrightness2.png"
+        -image1 "toonBrightness2.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $temp;\nint $edges[];\nstring $shapes[] = `ls -exactType transform`;\nfor ($temp in $shapes)\n{\n    print ($temp + \" -> \");\n    if ($temp != \"persp\" &&\n        $temp != \"front\" &&\n        $temp != \"side\" &&\n        $temp != \"top\")\n    {\n        $edges = `polyEvaluate -edge $temp`;\n        print ($edges);\n        polySoftEdge -ch 1 -a 0 ($temp + \".e[0:\" + $edges[0] + \"]\");\n    }\n\telse print \"none\\n\";\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_NoShade()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    if (size($materials) == 0)\n    {\n        warning (\"NoShade: no materials found\" + $where);\n        return 0;\n    }\n    string $material;\n    for ($material in $materials)\n    {\n        // remember the material's original settings (once), so that RestoreShading can put them back\n        if (!`attributeExists \"modelUtilitiesOriginal\" $material`)\n        {\n            float $diffuse = `getAttr ($material + \".diffuse\")`;\n            float $incandescence[] = `getAttr ($material + \".incandescence\")`;\n            float $ambient[] = `getAttr ($material + \".ambientColor\")`;\n            float $specular[] = {0.0, 0.0, 0.0};\n            if (`attributeExists \"specularColor\" $material`)\n                $specular = `getAttr ($material + \".specularColor\")`;\n            addAttr -longName \"modelUtilitiesOriginal\" -dataType \"string\" $material;\n            setAttr -type \"string\" ($material + \".modelUtilitiesOriginal\") (\"\" + $diffuse\n                + \" \" + $incandescence[0] + \" \" + $incandescence[1] + \" \" + $incandescence[2]\n                + \" \" + $ambient[0] + \" \" + $ambient[1] + \" \" + $ambient[2]\n                + \" \" + $specular[0] + \" \" + $specular[1] + \" \" + $specular[2]);\n        }\n        // unplug the CelShade ramp, if any\n        string $ambientInputs[] = `listConnections -source true -destination false -plugs true ($material + \".ambientColor\")`;\n        string $ambientInput;\n        for ($ambientInput in $ambientInputs)\n        {\n            if (`gmatch $ambientInput \"ModelUtilities_celShade*\"`)\n                disconnectAttr $ambientInput ($material + \".ambientColor\");\n        }\n        if (!`connectionInfo -isDestination ($material + \".diffuse\")`)\n            setAttr ($material + \".diffuse\") 0;\n        if (!`connectionInfo -isDestination ($material + \".incandescence\")`)\n            setAttr ($material + \".incandescence\") -type \"double3\" 0 0 0;\n        if (!`connectionInfo -isDestination ($material + \".ambientColor\")`)\n            setAttr ($material + \".ambientColor\") -type \"double3\" 1 1 1;\n        if (`attributeExists \"specularColor\" $material`)\n        {\n            if (!`connectionInfo -isDestination ($material + \".specularColor\")`)\n                setAttr ($material + \".specularColor\") -type \"double3\" 0 0 0;\n        }\n    }\n    print (\"NoShade: \" + size($materials) + \" materials changed\" + $where + \"\\n\");\n    return size($materials);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_NoShade());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "Incandesce: Makes every material have its Incandescence set to white (1, 1, 1).\nThis might be useful to have 'NoShade' rendering on the Maya default legacy viewport.\nRestoreShading puts the materials back the way they were."
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "Incandesce"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "Incandesce"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "toonSolid.png"
+        -image1 "toonSolid.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "global proc int ModelUtilities_Incandesce()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    if (size($materials) == 0)\n    {\n        warning (\"Incandesce: no materials found\" + $where);\n        return 0;\n    }\n    string $material;\n    for ($material in $materials)\n    {\n        // remember the material's original settings (once), so that RestoreShading can put them back\n        if (!`attributeExists \"modelUtilitiesOriginal\" $material`)\n        {\n            float $diffuse = `getAttr ($material + \".diffuse\")`;\n            float $incandescence[] = `getAttr ($material + \".incandescence\")`;\n            float $ambient[] = `getAttr ($material + \".ambientColor\")`;\n            float $specular[] = {0.0, 0.0, 0.0};\n            if (`attributeExists \"specularColor\" $material`)\n                $specular = `getAttr ($material + \".specularColor\")`;\n            addAttr -longName \"modelUtilitiesOriginal\" -dataType \"string\" $material;\n            setAttr -type \"string\" ($material + \".modelUtilitiesOriginal\") (\"\" + $diffuse\n                + \" \" + $incandescence[0] + \" \" + $incandescence[1] + \" \" + $incandescence[2]\n                + \" \" + $ambient[0] + \" \" + $ambient[1] + \" \" + $ambient[2]\n                + \" \" + $specular[0] + \" \" + $specular[1] + \" \" + $specular[2]);\n        }\n        if (!`connectionInfo -isDestination ($material + \".incandescence\")`)\n            setAttr ($material + \".incandescence\") -type \"double3\" 1 1 1;\n    }\n    print (\"Incandesce: \" + size($materials) + \" materials changed\" + $where + \"\\n\");\n    return size($materials);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_Incandesce());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "CelShade: Make every material's ambient lighting use a simple 3-step ramp shader\n(the ramp is shared: edit 'ModelUtilities_celShade' to change the steps of every material at once).\nRestoreShading puts the materials back the way they were."
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "CelShade"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "CelShade"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "toonBrightness3.png"
+        -image1 "toonBrightness3.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "global proc int ModelUtilities_CelShade()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    if (size($materials) == 0)\n    {\n        warning (\"CelShade: no materials found\" + $where);\n        return 0;\n    }\n    // the 3-step ramp shader, created once and shared by all the materials\n    string $celShader = \"ModelUtilities_celShade\";\n    if (!`objExists $celShader`)\n    {\n        $celShader = `shadingNode -asShader -name \"ModelUtilities_celShade\" rampShader`;\n        setAttr ($celShader + \".environment[0].environment_Color\") -type \"double3\" 0.1 0.1 0.1;\n        setAttr ($celShader + \".environment[0].environment_Position\") 0.05;\n        setAttr ($celShader + \".environment[0].environment_Interp\") 0;\n        setAttr ($celShader + \".environment[1].environment_Color\") -type \"double3\" 0.5 0.5 0.5;\n        setAttr ($celShader + \".environment[1].environment_Position\") 0.25;\n        setAttr ($celShader + \".environment[1].environment_Interp\") 0;\n        setAttr ($celShader + \".environment[2].environment_Color\") -type \"double3\" 1.0 1.0 1.0;\n        setAttr ($celShader + \".environment[2].environment_Position\") 0.50;\n        setAttr ($celShader + \".environment[2].environment_Interp\") 0;\n    }\n    string $material;\n    for ($material in $materials)\n    {\n        // remember the material's original settings (once), so that RestoreShading can put them back\n        if (!`attributeExists \"modelUtilitiesOriginal\" $material`)\n        {\n            float $diffuse = `getAttr ($material + \".diffuse\")`;\n            float $incandescence[] = `getAttr ($material + \".incandescence\")`;\n            float $ambient[] = `getAttr ($material + \".ambientColor\")`;\n            float $specular[] = {0.0, 0.0, 0.0};\n            if (`attributeExists \"specularColor\" $material`)\n                $specular = `getAttr ($material + \".specularColor\")`;\n            addAttr -longName \"modelUtilitiesOriginal\" -dataType \"string\" $material;\n            setAttr -type \"string\" ($material + \".modelUtilitiesOriginal\") (\"\" + $diffuse\n                + \" \" + $incandescence[0] + \" \" + $incandescence[1] + \" \" + $incandescence[2]\n                + \" \" + $ambient[0] + \" \" + $ambient[1] + \" \" + $ambient[2]\n                + \" \" + $specular[0] + \" \" + $specular[1] + \" \" + $specular[2]);\n        }\n        // undo NoShade / Incandesce first, so that CelShade looks the same whatever was used before it\n        string $saved = `getAttr ($material + \".modelUtilitiesOriginal\")`;\n        string $values[];\n        tokenize($saved, \" \", $values);\n        if (!`connectionInfo -isDestination ($material + \".diffuse\")`)\n            setAttr ($material + \".diffuse\") ((float)$values[0]);\n        if (!`connectionInfo -isDestination ($material + \".incandescence\")`)\n            setAttr ($material + \".incandescence\") -type \"double3\" ((float)$values[1]) ((float)$values[2]) ((float)$values[3]);\n        if (`attributeExists \"specularColor\" $material`)\n        {\n            if (!`connectionInfo -isDestination ($material + \".specularColor\")`)\n                setAttr ($material + \".specularColor\") -type \"double3\" ((float)$values[7]) ((float)$values[8]) ((float)$values[9]);\n        }\n        connectAttr -force ($celShader + \".outColor\") ($material + \".ambientColor\");\n    }\n    print (\"CelShade: \" + size($materials) + \" materials changed\" + $where + \"\\n\");\n    return size($materials);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_CelShade());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "RestoreShading: Undoes NoShade, Incandesce and CelShade: puts back each material's original diffuse, incandescence,\nambient color and specular color (saved by those scripts), and unplugs the CelShade ramp."
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "RestoreShading"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "RestoreShading"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "commandButton.png"
+        -image1 "commandButton.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "global proc int ModelUtilities_RestoreShading()\n{\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,\n    // or only the ones assigned to the selected objects. Maya's default material \"lambert1\" is left alone.\n    string $materials[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        string $shapes[];\n        if (size($selection))\n            $shapes = `ls -dag -noIntermediate -type \"mesh\" $selection`;\n        string $shape;\n        for ($shape in $shapes)\n        {\n            string $shadingGroups[] = `listConnections -type \"shadingEngine\" $shape`;\n            string $shadingGroup;\n            for ($shadingGroup in $shadingGroups)\n            {\n                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + \".surfaceShader\")`;\n                $materials = stringArrayCatenate($materials, $shaders);\n            }\n        }\n        if (size($materials))\n            $materials = `ls -type \"lambert\" $materials`;\n    }\n    else\n        $materials = `ls -type \"lambert\"`;\n    $materials = stringArrayRemoveDuplicates($materials);\n    $materials = stringArrayRemove({\"lambert1\"}, $materials);\n    if (size($materials) == 0)\n    {\n        warning (\"RestoreShading: no materials found\" + $where);\n        return 0;\n    }\n    int $count = 0;\n    string $material;\n    for ($material in $materials)\n    {\n        if (!`attributeExists \"modelUtilitiesOriginal\" $material`)\n            continue;\n        // unplug the CelShade ramp, if any\n        string $ambientInputs[] = `listConnections -source true -destination false -plugs true ($material + \".ambientColor\")`;\n        string $ambientInput;\n        for ($ambientInput in $ambientInputs)\n        {\n            if (`gmatch $ambientInput \"ModelUtilities_celShade*\"`)\n                disconnectAttr $ambientInput ($material + \".ambientColor\");\n        }\n        string $saved = `getAttr ($material + \".modelUtilitiesOriginal\")`;\n        string $values[];\n        tokenize($saved, \" \", $values);\n        if (!`connectionInfo -isDestination ($material + \".diffuse\")`)\n            setAttr ($material + \".diffuse\") ((float)$values[0]);\n        if (!`connectionInfo -isDestination ($material + \".incandescence\")`)\n            setAttr ($material + \".incandescence\") -type \"double3\" ((float)$values[1]) ((float)$values[2]) ((float)$values[3]);\n        if (!`connectionInfo -isDestination ($material + \".ambientColor\")`)\n            setAttr ($material + \".ambientColor\") -type \"double3\" ((float)$values[4]) ((float)$values[5]) ((float)$values[6]);\n        if (`attributeExists \"specularColor\" $material`)\n        {\n            if (!`connectionInfo -isDestination ($material + \".specularColor\")`)\n                setAttr ($material + \".specularColor\") -type \"double3\" ((float)$values[7]) ((float)$values[8]) ((float)$values[9]);\n        }\n        deleteAttr ($material + \".modelUtilitiesOriginal\");\n        $count++;\n    }\n    // delete the CelShade ramp once no material uses it anymore\n    if (`objExists \"ModelUtilities_celShade\"`)\n    {\n        string $users[] = `listConnections -source false -destination true -type \"lambert\" \"ModelUtilities_celShade\"`;\n        if (size($users) == 0)\n            delete \"ModelUtilities_celShade\";\n    }\n    print (\"RestoreShading: \" + $count + \" materials restored\" + $where + \"\\n\");\n    return $count;\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_RestoreShading());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -605,9 +572,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -618,28 +585,94 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "FaceCameraAlways: Makes it so the selected polygon faces are always facing the camera, with an aim constraint to 'persp'" 
+        -annotation "MergeAllVertices: Merges together any vertices that are within 0.001 distance of each other\n(the distance can be changed with the Options button)"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "FaceCameraAlways" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "MergeAllVertices"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "FaceCameraAlways" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "cameraAim.png" 
-        -image1 "cameraAim.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "MergeAllVertices"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "polyMergeVertex.png"
+        -image1 "polyMergeVertex.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $faces[] = `ls -selection -flatten`;\nstring $polys[];\nstring $poly;\nint $face_id;\nstring $temp;\nfor ($temp in $faces)\n{\n    $face_id = (int)`match \"([0123456789]+)\" $temp`;\n    print ($temp + \" -> \" + $face_id + \": \");\n    $polys = `listRelatives -parent $temp`;\n    $poly = $polys[0];\n    print ($poly + \" -> \");\n    $polys = `polySeparate -sss $face_id $poly`;\n    $poly = $polys[0];\n    print ($poly + \"\\n\");\n    select -r \"persp\";\n    select -add $poly;\n\taimConstraint\n\t    -offset 0 0 0\n\t    -weight 1\n\t    -aimVector 0 0 1\n\t    -upVector 0 1 0\n\t    -worldUpType \"vector\"\n\t    -worldUpVector 0 1 0;\n}" 
-        -sourceType "mel" 
+        -command "global proc int ModelUtilities_MergeAllVertices()\n{\n    float $distance = 0.001;\n    if (`optionVar -exists \"ModelUtilities_mergeDistance\"`)\n        $distance = `optionVar -query \"ModelUtilities_mergeDistance\"`;\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the meshes to change: all of them in the scene, or the selected ones\n    string $meshes[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        if (size($selection))\n            $meshes = `ls -long -dag -noIntermediate -type \"mesh\" $selection`;\n    }\n    else\n        $meshes = `ls -long -noIntermediate -type \"mesh\"`;\n    $meshes = stringArrayRemoveDuplicates($meshes);\n    if (size($meshes) == 0)\n    {\n        warning (\"MergeAllVertices: no meshes found\" + $where);\n        return 0;\n    }\n    int $merged = 0;\n    string $mesh;\n    for ($mesh in $meshes)\n    {\n        int $before[] = `polyEvaluate -vertex $mesh`;\n        if ($before[0] == 0)\n            continue;\n        polyMergeVertex -distance $distance -constructionHistory 1 ($mesh + \".vtx[*]\");\n        int $after[] = `polyEvaluate -vertex $mesh`;\n        $merged += $before[0] - $after[0];\n    }\n    print (\"MergeAllVertices: \" + $merged + \" vertices merged in \" + size($meshes) + \" meshes\" + $where + \"\\n\");\n    return $merged;\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_MergeAllVertices());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "SoftenAllEdges: Makes every edge of every polygon object have soft normal shading\n(unlocks the normals first: can be turned off with the Options button)"
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "SoftenAllEdges"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "SoftenAllEdges"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "polySoftEdge.png"
+        -image1 "polySoftEdge.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "global proc int ModelUtilities_SoftenAllEdges()\n{\n    // unlock the normals first (imported models often have locked normals, which polySoftEdge can't change)\n    int $unlock = 1;\n    if (`optionVar -exists \"ModelUtilities_unlockNormals\"`)\n        $unlock = `optionVar -query \"ModelUtilities_unlockNormals\"`;\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the meshes to change: all of them in the scene, or the selected ones\n    string $meshes[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        if (size($selection))\n            $meshes = `ls -long -dag -noIntermediate -type \"mesh\" $selection`;\n    }\n    else\n        $meshes = `ls -long -noIntermediate -type \"mesh\"`;\n    $meshes = stringArrayRemoveDuplicates($meshes);\n    if (size($meshes) == 0)\n    {\n        warning (\"SoftenAllEdges: no meshes found\" + $where);\n        return 0;\n    }\n    string $mesh;\n    for ($mesh in $meshes)\n    {\n        int $edges[] = `polyEvaluate -edge $mesh`;\n        if ($edges[0] == 0)\n            continue;\n        if ($unlock)\n            polyNormalPerVertex -unFreezeNormal true ($mesh + \".vtx[*]\");\n        polySoftEdge -angle 180 -constructionHistory 1 ($mesh + \".e[*]\");\n    }\n    print (\"SoftenAllEdges: \" + size($meshes) + \" meshes softened\" + $where + \"\\n\");\n    return size($meshes);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_SoftenAllEdges());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "HardenAllEdges: Makes every edge of every polygon object have hard polygonal normal shading\n(unlocks the normals first: can be turned off with the Options button)"
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "HardenAllEdges"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "HardenAllEdges"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "polyHardEdge.png"
+        -image1 "polyHardEdge.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "global proc int ModelUtilities_HardenAllEdges()\n{\n    // unlock the normals first (imported models often have locked normals, which polySoftEdge can't change)\n    int $unlock = 1;\n    if (`optionVar -exists \"ModelUtilities_unlockNormals\"`)\n        $unlock = `optionVar -query \"ModelUtilities_unlockNormals\"`;\n    // which objects to change: \"all\" (the whole scene) or \"selected\" (only the selected objects),\n    // set with the Options button\n    string $affect = \"all\";\n    if (`optionVar -exists \"ModelUtilities_affect\"`)\n        $affect = `optionVar -query \"ModelUtilities_affect\"`;\n    string $where = \"\";\n    if ($affect == \"selected\")\n        $where = \" (selected objects only)\";\n    // the meshes to change: all of them in the scene, or the selected ones\n    string $meshes[];\n    if ($affect == \"selected\")\n    {\n        string $selection[] = `ls -selection -objectsOnly`;\n        if (size($selection))\n            $meshes = `ls -long -dag -noIntermediate -type \"mesh\" $selection`;\n    }\n    else\n        $meshes = `ls -long -noIntermediate -type \"mesh\"`;\n    $meshes = stringArrayRemoveDuplicates($meshes);\n    if (size($meshes) == 0)\n    {\n        warning (\"HardenAllEdges: no meshes found\" + $where);\n        return 0;\n    }\n    string $mesh;\n    for ($mesh in $meshes)\n    {\n        int $edges[] = `polyEvaluate -edge $mesh`;\n        if ($edges[0] == 0)\n            continue;\n        if ($unlock)\n            polyNormalPerVertex -unFreezeNormal true ($mesh + \".vtx[*]\");\n        polySoftEdge -angle 0 -constructionHistory 1 ($mesh + \".e[*]\");\n    }\n    print (\"HardenAllEdges: \" + size($meshes) + \" meshes hardened\" + $where + \"\\n\");\n    return size($meshes);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_HardenAllEdges());\nundoInfo -closeChunk;"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -651,9 +684,9 @@ global proc shelf_Utilities () {
         -visible 1
         -preventOverride 0
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -style "shelf" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
         -horizontal 0
     ;
     shelfButton
@@ -664,28 +697,74 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "SmallScreenshot: Saves a 168x145 png screenshot of the current view" 
+        -annotation "FaceCameraAlways: Makes it so the selected polygon faces are always facing the camera: they are moved into new objects\n(with their pivot at their center), with an aim constraint to the 'persp' camera.\nBy default each group of connected selected faces becomes one billboard (e.g. a quad made of 2 triangles);\nthe Options button can make one billboard per face instead, and pick another camera.\ncopies the given faces of an object into a new billboard object facing the camera"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "SmallScreenshot" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "FaceCameraAlways"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "SmallScreenshot" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "viewStereoEditor.png" 
-        -image1 "viewStereoEditor.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "FaceCameraAlways"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "cameraAim.png"
+        -image1 "cameraAim.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $window = `window\n    -w (148 + 2)\n    -h (125 + 2)\n    -backgroundColor 1 0 1\n    -title \"small icon render\"`;\npaneLayout;\nstring $editor = `modelEditor\n\t-transparencyAlgorithm \"perPolygonSort\"\n    -displayAppearance \"smoothShaded\"\n    -displayTextures on\n    -hud off\n    -grid off\n    -joints 0\n    -activeView`;\nshowWindow $window;\nstring $files[] = `ls -type file`;\nstring $filepath = dirname(`getAttr ($files[0] + \".fileTextureName\")`);\n$filepath = ($filepath + \"_icon-small.png\");\nprint (\"Saved image as \" + $filepath);\nrefresh -currentView -fileExtension \"png\" -filename ($filepath);" 
-        -sourceType "mel" 
+        -command "global proc string ModelUtilities_makeBillboard(string $object, string $ids[], string $camera)\n{\n    // duplicate the whole object, without history, at the root of the scene\n    string $transform = $object;\n    if (`nodeType $transform` == \"mesh\")\n    {\n        string $parents[] = `listRelatives -parent -fullPath $transform`;\n        $transform = $parents[0];\n    }\n    string $copies[] = `duplicate -returnRootsOnly $transform`;\n    string $billboard = $copies[0];\n    delete -constructionHistory $billboard;\n    string $children[] = `listRelatives -children -type \"transform\" -fullPath $billboard`;\n    if (size($children))\n        delete $children;\n    string $shapes[] = `listRelatives -shapes -fullPath $billboard`;\n    string $intermediates[];\n    if (size($shapes))\n        $intermediates = `ls -intermediateObjects $shapes`;\n    if (size($intermediates))\n        delete $intermediates;\n    if (size(`listRelatives -parent $billboard`))\n    {\n        string $unparented[] = `parent -world $billboard`;\n        $billboard = $unparented[0];\n    }\n    string $name = match(\"[^|:]+$\", $transform);\n    $billboard = `rename $billboard ($name + \"_billboard#\")`;\n\n    // delete every face of the copy except the given ones\n    int $faceCount[] = `polyEvaluate -face $billboard`;\n    int $keep[];\n    string $id;\n    for ($id in $ids)\n        $keep[size($keep)] = (int)$id;\n    $keep = sort($keep);\n    string $unwanted[];\n    int $start = 0;\n    int $k;\n    for ($k in $keep)\n    {\n        if ($k > $start)\n            $unwanted[size($unwanted)] = $billboard + \".f[\" + $start + \":\" + ($k - 1) + \"]\";\n        $start = $k + 1;\n    }\n    if ($start < $faceCount[0])\n        $unwanted[size($unwanted)] = $billboard + \".f[\" + $start + \":\" + ($faceCount[0] - 1) + \"]\";\n    if (size($unwanted))\n        delete $unwanted;\n    delete -constructionHistory $billboard;\n\n    // bake the transform into the vertices, so that they are in world space\n    makeIdentity -apply true -translate true -rotate true -scale true -normal 0 -preserveNormals true $billboard;\n    xform -objectSpace -pivots 0 0 0 $billboard;\n\n    // center and normal of the faces (world space)\n    float $positions[] = `xform -query -worldSpace -translation ($billboard + \".vtx[*]\")`;\n    int $vertexCount = size($positions) / 3;\n    float $c[] = {0.0, 0.0, 0.0};\n    int $v;\n    for ($v = 0; $v < $vertexCount; $v++)\n    {\n        $c[0] = $c[0] + $positions[3 * $v] / $vertexCount;\n        $c[1] = $c[1] + $positions[3 * $v + 1] / $vertexCount;\n        $c[2] = $c[2] + $positions[3 * $v + 2] / $vertexCount;\n    }\n    float $n[] = {0.0, 0.0, 0.0};\n    string $faceInfo[] = `polyInfo -faceToVertex ($billboard + \".f[*]\")`;\n    string $line;\n    for ($line in $faceInfo)\n    {\n        // \"FACE 0: 4 5 7 6\" -> area-weighted normal of the polygon (Newell's method)\n        string $tokens[];\n        tokenize($line, \" :\\t\\n\\r\", $tokens);\n        int $corners = size($tokens) - 2;\n        int $i;\n        for ($i = 0; $i < $corners; $i++)\n        {\n            int $a = 3 * (int)$tokens[2 + $i];\n            int $b = 3 * (int)$tokens[2 + ($i + 1) % $corners];\n            $n[0] = $n[0] + ($positions[$a + 1] - $positions[$b + 1]) * ($positions[$a + 2] + $positions[$b + 2]);\n            $n[1] = $n[1] + ($positions[$a + 2] - $positions[$b + 2]) * ($positions[$a] + $positions[$b]);\n            $n[2] = $n[2] + ($positions[$a] - $positions[$b]) * ($positions[$a + 1] + $positions[$b + 1]);\n        }\n    }\n\n    // the billboard's axes: Z = the faces' normal, Y = as close to the world up (Y) as possible\n    vector $z = <<$n[0], $n[1], $n[2]>>;\n    if (mag($z) < 0.000001)\n    {\n        float $eye[] = `xform -query -worldSpace -translation $camera`;\n        $z = <<$eye[0] - $c[0], $eye[1] - $c[1], $eye[2] - $c[2]>>;\n    }\n    $z = unit($z);\n    vector $up = <<0.0, 1.0, 0.0>>;\n    if (abs(dot($z, $up)) > 0.999)\n        $up = <<0.0, 0.0, 1.0>>;\n    vector $x = unit(cross($up, $z));\n    vector $y = cross($z, $x);\n    float $x0 = $x.x; float $x1 = $x.y; float $x2 = $x.z;\n    float $y0 = $y.x; float $y1 = $y.y; float $y2 = $y.z;\n    float $z0 = $z.x; float $z1 = $z.y; float $z2 = $z.z;\n    float $m[] = {$x0, $x1, $x2, 0.0, $y0, $y1, $y2, 0.0, $z0, $z1, $z2, 0.0, $c[0], $c[1], $c[2], 1.0};\n    float $tx = -($c[0] * $x0 + $c[1] * $x1 + $c[2] * $x2);\n    float $ty = -($c[0] * $y0 + $c[1] * $y1 + $c[2] * $y2);\n    float $tz = -($c[0] * $z0 + $c[1] * $z1 + $c[2] * $z2);\n    float $inverse[] = {$x0, $y0, $z0, 0.0, $x1, $y1, $z1, 0.0, $x2, $y2, $z2, 0.0, $tx, $ty, $tz, 1.0};\n\n    // move the faces to the origin, facing +Z, and bake that into the vertices...\n    xform -matrix $inverse[0] $inverse[1] $inverse[2] $inverse[3] $inverse[4] $inverse[5] $inverse[6] $inverse[7]\n        $inverse[8] $inverse[9] $inverse[10] $inverse[11] $inverse[12] $inverse[13] $inverse[14] $inverse[15] $billboard;\n    makeIdentity -apply true -translate true -rotate true -scale true -normal 0 -preserveNormals true $billboard;\n    xform -objectSpace -pivots 0 0 0 $billboard;\n    // ...then move the object back in place: its pivot is the faces' center, and its Z axis their normal\n    xform -matrix $m[0] $m[1] $m[2] $m[3] $m[4] $m[5] $m[6] $m[7]\n        $m[8] $m[9] $m[10] $m[11] $m[12] $m[13] $m[14] $m[15] $billboard;\n\n    // always face the camera\n    aimConstraint -weight 1 -aimVector 0 0 1 -upVector 0 1 0 -worldUpType \"vector\" -worldUpVector 0 1 0\n        $camera $billboard;\n    return $billboard;\n}\nglobal proc int ModelUtilities_FaceCameraAlways()\n{\n    string $camera = \"persp\";\n    if (`optionVar -exists \"ModelUtilities_billboardCamera\"`)\n        $camera = `optionVar -query \"ModelUtilities_billboardCamera\"`;\n    int $perFace = 0;\n    if (`optionVar -exists \"ModelUtilities_billboardPerFace\"`)\n        $perFace = `optionVar -query \"ModelUtilities_billboardPerFace\"`;\n    if (!`objExists $camera`)\n        error (\"FaceCameraAlways: there is no camera named '\" + $camera + \"' (pick one with the Options button)\");\n\n    string $faces[] = `filterExpand -selectionMask 34 -expand true -fullPath true`;\n    if (size($faces) == 0)\n        error \"FaceCameraAlways: select the polygon faces to turn into billboards first\";\n\n    // the objects that the selected faces belong to\n    string $objects[];\n    string $face;\n    string $parts[];\n    for ($face in $faces)\n    {\n        tokenize($face, \".\", $parts);\n        $objects[size($objects)] = $parts[0];\n    }\n    $objects = stringArrayRemoveDuplicates($objects);\n\n    string $billboards[];\n    string $object;\n    for ($object in $objects)\n    {\n        // the selected faces of this object\n        string $ids[];\n        clear($ids);\n        for ($face in $faces)\n        {\n            tokenize($face, \".\", $parts);\n            if ($parts[0] == $object)\n                $ids[size($ids)] = match(\"[0-9]+\", $parts[1]);\n        }\n\n        // the groups of faces that become one billboard each (face ids separated by spaces)\n        string $groups[];\n        clear($groups);\n        string $id;\n        if ($perFace)\n            $groups = $ids;\n        else\n        {\n            // gather the selected faces that are connected (share an edge)\n            string $remaining[] = $ids;\n            while (size($remaining))\n            {\n                string $island[] = {$remaining[0]};\n                int $previousSize = 0;\n                while (size($island) != $previousSize)\n                {\n                    $previousSize = size($island);\n                    string $islandFaces[];\n                    clear($islandFaces);\n                    for ($id in $island)\n                        $islandFaces[size($islandFaces)] = $object + \".f[\" + $id + \"]\";\n                    string $edges[] = `polyListComponentConversion -fromFace -toEdge $islandFaces`;\n                    string $neighbors[] = `polyListComponentConversion -fromEdge -toFace $edges`;\n                    $neighbors = `ls -flatten $neighbors`;\n                    string $neighbor;\n                    for ($neighbor in $neighbors)\n                    {\n                        tokenize($neighbor, \".\", $parts);\n                        string $neighborId = match(\"[0-9]+\", $parts[1]);\n                        if (stringArrayContains($neighborId, $remaining) && !stringArrayContains($neighborId, $island))\n                            $island[size($island)] = $neighborId;\n                    }\n                }\n                $groups[size($groups)] = stringArrayToString($island, \" \");\n                $remaining = stringArrayRemove($island, $remaining);\n            }\n        }\n\n        string $group;\n        for ($group in $groups)\n        {\n            string $groupIds[] = stringToStringArray($group, \" \");\n            $billboards[size($billboards)] = ModelUtilities_makeBillboard($object, $groupIds, $camera);\n        }\n\n        // remove the faces from the original object\n        string $originalFaces[];\n        clear($originalFaces);\n        for ($id in $ids)\n            $originalFaces[size($originalFaces)] = $object + \".f[\" + $id + \"]\";\n        delete $originalFaces;\n    }\n    select -replace $billboards;\n    print (\"FaceCameraAlways: made \" + size($billboards) + \" billboards facing '\" + $camera + \"'\\n\");\n    return size($billboards);\n}\nundoInfo -openChunk;\ncatch(ModelUtilities_FaceCameraAlways());\nundoInfo -closeChunk;"
+        -sourceType "mel"
+        -commandRepeatable 1
+        -flat 1
+    ;
+    separator
+        -enable 1
+        -width 12
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -style "shelf"
+        -horizontal 0
+    ;
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "SmallScreenshot: Saves a 148x125 png screenshot of the current view (without HUD elements and bone joints)"
+        -enableBackground 0
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "SmallScreenshot"
+        -labelOffset 0
+        -rotation 0
+        -flipX 0
+        -flipY 0
+        -useAlpha 1
+        -font "plainLabelFont"
+        -imageOverlayLabel "SmallScreenshot"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "viewStereoEditor.png"
+        -image1 "viewStereoEditor.png"
+        -style "iconOnly"
+        -marginWidth 1
+        -marginHeight 1
+        -command "string $window = `window\n    -w (148 + 2)\n    -h (125 + 2)\n    -backgroundColor 1 0 1\n    -title \"small icon render\"`;\npaneLayout;\nstring $editor = `modelEditor\n    -transparencyAlgorithm \"perPolygonSort\"\n    -displayAppearance \"smoothShaded\"\n    -displayTextures on\n    -hud off\n    -grid off\n    -joints 0\n    -activeView`;\nshowWindow $window;\nstring $files[] = `ls -type file`;\nstring $filepath = dirname(`getAttr ($files[0] + \".fileTextureName\")`);\n$filepath = ($filepath + \"_icon-small.png\");\nprint (\"Saved image as \" + $filepath);\nrefresh -currentView -fileExtension \"png\" -filename ($filepath);"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;
@@ -697,28 +776,28 @@ global proc shelf_Utilities () {
         -manage 1
         -visible 1
         -preventOverride 0
-        -annotation "LargeScreenshot: Saves a 750x650 png screenshot of the current view" 
+        -annotation "LargeScreenshot: Saves a 750x650 png screenshot of the current view (without HUD elements and bone joints)"
         -enableBackground 0
-        -backgroundColor 0 0 0 
-        -highlightColor 0.321569 0.521569 0.65098 
-        -align "center" 
-        -label "LargeScreenshot" 
+        -backgroundColor 0 0 0
+        -highlightColor 0.321569 0.521569 0.65098
+        -align "center"
+        -label "LargeScreenshot"
         -labelOffset 0
         -rotation 0
         -flipX 0
         -flipY 0
         -useAlpha 1
-        -font "plainLabelFont" 
-        -imageOverlayLabel "LargeScreenshot" 
-        -overlayLabelColor 0.8 0.8 0.8 
-        -overlayLabelBackColor 0 0 0 0.5 
-        -image "viewStereoEditor.png" 
-        -image1 "viewStereoEditor.png" 
-        -style "iconOnly" 
+        -font "plainLabelFont"
+        -imageOverlayLabel "LargeScreenshot"
+        -overlayLabelColor 0.8 0.8 0.8
+        -overlayLabelBackColor 0 0 0 0.5
+        -image "viewStereoEditor.png"
+        -image1 "viewStereoEditor.png"
+        -style "iconOnly"
         -marginWidth 1
         -marginHeight 1
-        -command "string $window = `window\n    -w (750 + 2)\n    -h (650 + 2)\n    -backgroundColor 1 0 1\n    -title \"large icon render\"`;\npaneLayout;\nstring $editor = `modelEditor\n\t-transparencyAlgorithm \"perPolygonSort\"\n    -displayAppearance \"smoothShaded\"\n    -displayTextures on\n    -hud off\n    -grid off\n    -joints 0\n    -activeView`;\nshowWindow $window;\nstring $files[] = `ls -type file`;\nstring $filepath = dirname(`getAttr ($files[0] + \".fileTextureName\")`);\n$filepath = ($filepath + \"_icon-large.png\");\nprint (\"Saved image as \" + $filepath);\nrefresh -currentView -fileExtension \"png\" -filename ($filepath);" 
-        -sourceType "mel" 
+        -command "string $window = `window\n    -w (750 + 2)\n    -h (650 + 2)\n    -backgroundColor 1 0 1\n    -title \"large icon render\"`;\npaneLayout;\nstring $editor = `modelEditor\n    -transparencyAlgorithm \"perPolygonSort\"\n    -displayAppearance \"smoothShaded\"\n    -displayTextures on\n    -hud off\n    -grid off\n    -joints 0\n    -activeView`;\nshowWindow $window;\nstring $files[] = `ls -type file`;\nstring $filepath = dirname(`getAttr ($files[0] + \".fileTextureName\")`);\n$filepath = ($filepath + \"_icon-large.png\");\nprint (\"Saved image as \" + $filepath);\nrefresh -currentView -fileExtension \"png\" -filename ($filepath);"
+        -sourceType "mel"
         -commandRepeatable 1
         -flat 1
     ;

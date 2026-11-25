@@ -1,5 +1,5 @@
 // SmallScreenshot
-// Saves a 168x145 png screenshot of the current view (without HUD elements and bone joints)
+// Saves a 148x125 png screenshot of the current view (without HUD elements and bone joints)
 string $window = `window
     -w (148 + 2)
     -h (125 + 2)
@@ -7,6 +7,7 @@ string $window = `window
     -title "small icon render"`;
 paneLayout;
 string $editor = `modelEditor
+    -transparencyAlgorithm "perPolygonSort"
     -displayAppearance "smoothShaded"
     -displayTextures on
     -hud off

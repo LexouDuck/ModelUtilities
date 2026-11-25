@@ -1,18 +1,100 @@
 // CelShade
 // Make every material's ambient lighting use a simple 3-step ramp shader
-string $celshader = `shadingNode -asShader rampShader`;
-setAttr ($celshader + ".environment[0].environment_Color") -type double3 0.1 0.1 0.1;
-setAttr ($celshader + ".environment[0].environment_Position") 0.05;
-setAttr ($celshader + ".environment[0].environment_Interp") 0;
-setAttr ($celshader + ".environment[1].environment_Color") -type double3 0.5 0.5 0.5;
-setAttr ($celshader + ".environment[1].environment_Position") 0.25;
-setAttr ($celshader + ".environment[1].environment_Interp") 0;
-setAttr ($celshader + ".environment[2].environment_Color") -type double3 1.0 1.0 1.0;
-setAttr ($celshader + ".environment[2].environment_Position") 0.50;
-setAttr ($celshader + ".environment[2].environment_Interp") 0;
-string $temp;
-string $phongs[] = `ls -type phong`;
-for ($temp in $phongs)
+// (the ramp is shared: edit 'ModelUtilities_celShade' to change the steps of every material at once).
+// RestoreShading puts the materials back the way they were.
+global proc int ModelUtilities_CelShade()
 {
-    connectAttr -f ($celshader + ".outColor") ($temp + ".ambientColor");
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
+    }
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    if (size($materials) == 0)
+    {
+        warning ("CelShade: no materials found" + $where);
+        return 0;
+    }
+    // the 3-step ramp shader, created once and shared by all the materials
+    string $celShader = "ModelUtilities_celShade";
+    if (!`objExists $celShader`)
+    {
+        $celShader = `shadingNode -asShader -name "ModelUtilities_celShade" rampShader`;
+        setAttr ($celShader + ".environment[0].environment_Color") -type "double3" 0.1 0.1 0.1;
+        setAttr ($celShader + ".environment[0].environment_Position") 0.05;
+        setAttr ($celShader + ".environment[0].environment_Interp") 0;
+        setAttr ($celShader + ".environment[1].environment_Color") -type "double3" 0.5 0.5 0.5;
+        setAttr ($celShader + ".environment[1].environment_Position") 0.25;
+        setAttr ($celShader + ".environment[1].environment_Interp") 0;
+        setAttr ($celShader + ".environment[2].environment_Color") -type "double3" 1.0 1.0 1.0;
+        setAttr ($celShader + ".environment[2].environment_Position") 0.50;
+        setAttr ($celShader + ".environment[2].environment_Interp") 0;
+    }
+    string $material;
+    for ($material in $materials)
+    {
+        // remember the material's original settings (once), so that RestoreShading can put them back
+        if (!`attributeExists "modelUtilitiesOriginal" $material`)
+        {
+            float $diffuse = `getAttr ($material + ".diffuse")`;
+            float $incandescence[] = `getAttr ($material + ".incandescence")`;
+            float $ambient[] = `getAttr ($material + ".ambientColor")`;
+            float $specular[] = {0.0, 0.0, 0.0};
+            if (`attributeExists "specularColor" $material`)
+                $specular = `getAttr ($material + ".specularColor")`;
+            addAttr -longName "modelUtilitiesOriginal" -dataType "string" $material;
+            setAttr -type "string" ($material + ".modelUtilitiesOriginal") ("" + $diffuse
+                + " " + $incandescence[0] + " " + $incandescence[1] + " " + $incandescence[2]
+                + " " + $ambient[0] + " " + $ambient[1] + " " + $ambient[2]
+                + " " + $specular[0] + " " + $specular[1] + " " + $specular[2]);
+        }
+        // undo NoShade / Incandesce first, so that CelShade looks the same whatever was used before it
+        string $saved = `getAttr ($material + ".modelUtilitiesOriginal")`;
+        string $values[];
+        tokenize($saved, " ", $values);
+        if (!`connectionInfo -isDestination ($material + ".diffuse")`)
+            setAttr ($material + ".diffuse") ((float)$values[0]);
+        if (!`connectionInfo -isDestination ($material + ".incandescence")`)
+            setAttr ($material + ".incandescence") -type "double3" ((float)$values[1]) ((float)$values[2]) ((float)$values[3]);
+        if (`attributeExists "specularColor" $material`)
+        {
+            if (!`connectionInfo -isDestination ($material + ".specularColor")`)
+                setAttr ($material + ".specularColor") -type "double3" ((float)$values[7]) ((float)$values[8]) ((float)$values[9]);
+        }
+        connectAttr -force ($celShader + ".outColor") ($material + ".ambientColor");
+    }
+    print ("CelShade: " + size($materials) + " materials changed" + $where + "\n");
+    return size($materials);
 }
+undoInfo -openChunk;
+catch(ModelUtilities_CelShade());
+undoInfo -closeChunk;

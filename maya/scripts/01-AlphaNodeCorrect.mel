@@ -1,20 +1,77 @@
 // AlphaNodeCorrect
-// Manually plugs in the output alpha of each texture node to its corresponding material node's input transparency.
+// Plugs the transparency of each material's texture (from its alpha channel) into the material's transparency.
 // Use this if the parts of the model which should be transparent appear opaque.
-string $temp;
-string $texture;
-string $textures[];
-string $phongs[] = `ls -type phong`;
-for ($temp in $phongs)
+global proc int ModelUtilities_AlphaNodeCorrect()
 {
-    $textures = `listConnections -type file $temp`;
-    for ($texture in $textures)
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
     {
-        connectAttr -f ($texture + ".outAlpha") ($temp + ".transparencyR");
-        connectAttr -f ($texture + ".outAlpha") ($temp + ".transparencyG");
-        connectAttr -f ($texture + ".outAlpha") ($temp + ".transparencyB");
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
     }
-    setAttr ($texture + ".alphaGain") -1;
-    setAttr ($texture + ".alphaOffset") 1;
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    if (size($materials) == 0)
+    {
+        warning ("AlphaNodeCorrect: no materials found" + $where);
+        return 0;
+    }
+    int $count = 0;
+    string $material;
+    for ($material in $materials)
+    {
+        // the texture plugged into the material's color, or else the first texture of its network
+        string $textures[] = `listConnections -source true -destination false -type "file" ($material + ".color")`;
+        if (size($textures) == 0)
+        {
+            string $history[] = `listHistory $material`;
+            $textures = `ls -type "file" $history`;
+        }
+        if (size($textures) == 0)
+            continue;
+        string $texture = $textures[0];
+        // undo the alpha inversion done by the previous version of this script (alphaGain -1, alphaOffset 1),
+        // since outTransparency already is (1 - alpha)
+        if (`getAttr ($texture + ".alphaGain")` == -1 && `getAttr ($texture + ".alphaOffset")` == 1)
+        {
+            setAttr ($texture + ".alphaGain") 1;
+            setAttr ($texture + ".alphaOffset") 0;
+        }
+        connectAttr -force ($texture + ".outTransparency") ($material + ".transparency");
+        $count++;
+    }
+    // depth peeling: transparent faces are sorted correctly in the viewport
+    setAttr "hardwareRenderingGlobals.transparencyAlgorithm" 3;
+    print ("AlphaNodeCorrect: " + $count + " of " + size($materials) + " materials changed" + $where + "\n");
+    return $count;
 }
-setAttr "hardwareRenderingGlobals.transparencyAlgorithm" 3;
+undoInfo -openChunk;
+catch(ModelUtilities_AlphaNodeCorrect());
+undoInfo -closeChunk;

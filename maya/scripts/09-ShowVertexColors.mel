@@ -1,14 +1,47 @@
 // ShowVertexColors
-// Make all objects in the scene display their polygon vertex colors
-string $temp;
-string $shapes[] = `ls -type shape`;
-for ($temp in $shapes)
+// Make all objects display their polygon vertex colors (multiplied with their material's ambient color)
+global proc int ModelUtilities_ShowVertexColors()
 {
-    if (`attributeQuery -node $temp -exists displayColors`)
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the meshes to change: all of them in the scene, or the selected ones
+    string $meshes[];
+    if ($affect == "selected")
     {
-        setAttr ($temp + ".displayColors") 1;
-        select -r $temp;
-        polyOptions -colorMaterialChannel ambient;
-        polyOptions -materialBlend multiply;
+        string $selection[] = `ls -selection -objectsOnly`;
+        if (size($selection))
+            $meshes = `ls -long -dag -noIntermediate -type "mesh" $selection`;
     }
+    else
+        $meshes = `ls -long -noIntermediate -type "mesh"`;
+    $meshes = stringArrayRemoveDuplicates($meshes);
+    if (size($meshes) == 0)
+    {
+        warning ("ShowVertexColors: no meshes found" + $where);
+        return 0;
+    }
+    // polyOptions works on the selection: select each mesh in turn, then restore the selection
+    string $previousSelection[] = `ls -selection`;
+    string $mesh;
+    for ($mesh in $meshes)
+    {
+        setAttr ($mesh + ".displayColors") 1;
+        select -replace $mesh;
+        polyOptions -colorMaterialChannel "ambient" -materialBlend "multiply";
+    }
+    if (size($previousSelection))
+        select -replace $previousSelection;
+    else
+        select -clear;
+    print ("ShowVertexColors: " + size($meshes) + " meshes" + $where + "\n");
+    return size($meshes);
 }
+undoInfo -openChunk;
+catch(ModelUtilities_ShowVertexColors());
+undoInfo -closeChunk;

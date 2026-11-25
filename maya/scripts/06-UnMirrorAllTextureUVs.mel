@@ -1,9 +1,68 @@
 // UnMirrorAllTextureUVs
-// Make all UV nodes in the scene have U & V mirroring set to false
-string $temp;
-string $textures[] = `ls -type place2dTexture`;
-for ($temp in $textures)
+// Make all UV nodes have U & V mirroring set to false
+global proc int ModelUtilities_UnMirrorAllTextureUVs()
 {
-    setAttr ($temp + ".mirrorU") 0;
-    setAttr ($temp + ".mirrorV") 0;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
+    }
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    // the texture placement (place2dTexture) nodes to change: all of them in the scene, or the ones used by the selected objects' materials
+    string $placements[];
+    if ($affect == "selected")
+    {
+        if (size($materials))
+        {
+            string $history[] = `listHistory $materials`;
+            $placements = `ls -type "place2dTexture" $history`;
+        }
+    }
+    else
+        $placements = `ls -type "place2dTexture"`;
+    if (size($placements) == 0)
+    {
+        warning ("UnMirrorAllTextureUVs: no texture placement (place2dTexture) nodes found" + $where);
+        return 0;
+    }
+    string $placement;
+    for ($placement in $placements)
+    {
+        setAttr ($placement + ".mirrorU") 0;
+        setAttr ($placement + ".mirrorV") 0;
+    }
+    print ("UnMirrorAllTextureUVs: " + size($placements) + " textures unmirrored" + $where + "\n");
+    return size($placements);
 }
+undoInfo -openChunk;
+catch(ModelUtilities_UnMirrorAllTextureUVs());
+undoInfo -closeChunk;

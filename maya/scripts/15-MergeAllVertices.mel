@@ -1,0 +1,49 @@
+// MergeAllVertices
+// Merges together any vertices that are within 0.001 distance of each other
+// (the distance can be changed with the Options button)
+global proc int ModelUtilities_MergeAllVertices()
+{
+    float $distance = 0.001;
+    if (`optionVar -exists "ModelUtilities_mergeDistance"`)
+        $distance = `optionVar -query "ModelUtilities_mergeDistance"`;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the meshes to change: all of them in the scene, or the selected ones
+    string $meshes[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        if (size($selection))
+            $meshes = `ls -long -dag -noIntermediate -type "mesh" $selection`;
+    }
+    else
+        $meshes = `ls -long -noIntermediate -type "mesh"`;
+    $meshes = stringArrayRemoveDuplicates($meshes);
+    if (size($meshes) == 0)
+    {
+        warning ("MergeAllVertices: no meshes found" + $where);
+        return 0;
+    }
+    int $merged = 0;
+    string $mesh;
+    for ($mesh in $meshes)
+    {
+        int $before[] = `polyEvaluate -vertex $mesh`;
+        if ($before[0] == 0)
+            continue;
+        polyMergeVertex -distance $distance -constructionHistory 1 ($mesh + ".vtx[*]");
+        int $after[] = `polyEvaluate -vertex $mesh`;
+        $merged += $before[0] - $after[0];
+    }
+    print ("MergeAllVertices: " + $merged + " vertices merged in " + size($meshes) + " meshes" + $where + "\n");
+    return $merged;
+}
+undoInfo -openChunk;
+catch(ModelUtilities_MergeAllVertices());
+undoInfo -closeChunk;

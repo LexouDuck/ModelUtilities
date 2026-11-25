@@ -7,6 +7,7 @@ string $window = `window
     -title "large icon render"`;
 paneLayout;
 string $editor = `modelEditor
+    -transparencyAlgorithm "perPolygonSort"
     -displayAppearance "smoothShaded"
     -displayTextures on
     -hud off

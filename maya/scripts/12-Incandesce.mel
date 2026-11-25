@@ -1,9 +1,73 @@
 // Incandesce
-// Makes every material in the scene have its Incandescence to white (1, 1, 1).
+// Makes every material have its Incandescence set to white (1, 1, 1).
 // This might be useful to have 'NoShade' rendering on the Maya default legacy viewport.
-string $temp;
-string $phongs[] = `ls -type phong`;
-for ($temp in $phongs)
+// RestoreShading puts the materials back the way they were.
+global proc int ModelUtilities_Incandesce()
 {
-    setAttr ($temp + ".incandescence") -type double3 1 1 1 ;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
+    }
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    if (size($materials) == 0)
+    {
+        warning ("Incandesce: no materials found" + $where);
+        return 0;
+    }
+    string $material;
+    for ($material in $materials)
+    {
+        // remember the material's original settings (once), so that RestoreShading can put them back
+        if (!`attributeExists "modelUtilitiesOriginal" $material`)
+        {
+            float $diffuse = `getAttr ($material + ".diffuse")`;
+            float $incandescence[] = `getAttr ($material + ".incandescence")`;
+            float $ambient[] = `getAttr ($material + ".ambientColor")`;
+            float $specular[] = {0.0, 0.0, 0.0};
+            if (`attributeExists "specularColor" $material`)
+                $specular = `getAttr ($material + ".specularColor")`;
+            addAttr -longName "modelUtilitiesOriginal" -dataType "string" $material;
+            setAttr -type "string" ($material + ".modelUtilitiesOriginal") ("" + $diffuse
+                + " " + $incandescence[0] + " " + $incandescence[1] + " " + $incandescence[2]
+                + " " + $ambient[0] + " " + $ambient[1] + " " + $ambient[2]
+                + " " + $specular[0] + " " + $specular[1] + " " + $specular[2]);
+        }
+        if (!`connectionInfo -isDestination ($material + ".incandescence")`)
+            setAttr ($material + ".incandescence") -type "double3" 1 1 1;
+    }
+    print ("Incandesce: " + size($materials) + " materials changed" + $where + "\n");
+    return size($materials);
 }
+undoInfo -openChunk;
+catch(ModelUtilities_Incandesce());
+undoInfo -closeChunk;

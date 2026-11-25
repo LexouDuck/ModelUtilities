@@ -1,8 +1,65 @@
 // UnfilterAllTextures
-// Sets every image texture in the scene to be unfiltered (ie: aliased, pixelated)
-string $temp;
-string $files[] = `ls -type file`;
-for ($temp in $files)
+// Sets every image texture to be unfiltered (ie: aliased, pixelated)
+global proc int ModelUtilities_UnfilterAllTextures()
 {
-    setAttr ($temp + ".filterType") 0;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
+    }
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    // the file textures to change: all of them in the scene, or the ones used by the selected objects' materials
+    string $files[];
+    if ($affect == "selected")
+    {
+        if (size($materials))
+        {
+            string $history[] = `listHistory $materials`;
+            $files = `ls -type "file" $history`;
+        }
+    }
+    else
+        $files = `ls -type "file"`;
+    if (size($files) == 0)
+    {
+        warning ("UnfilterAllTextures: no file textures found" + $where);
+        return 0;
+    }
+    string $file;
+    for ($file in $files)
+        setAttr ($file + ".filterType") 0;
+    print ("UnfilterAllTextures: " + size($files) + " textures unfiltered" + $where + "\n");
+    return size($files);
 }
+undoInfo -openChunk;
+catch(ModelUtilities_UnfilterAllTextures());
+undoInfo -closeChunk;

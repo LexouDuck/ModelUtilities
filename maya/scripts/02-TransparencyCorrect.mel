@@ -1,10 +1,68 @@
 // TransparencyCorrect
 // Make alpha channels work properly for imported models by setting 'alpha is luminance' to false.
 // Use this when the entire model is more or less see-through, it will make the correct parts of the model opaque as they should be.
-string $temp;
-string $files[] = `ls -type file`;
-for ($temp in $files)
+global proc int ModelUtilities_TransparencyCorrect()
 {
-    setAttr ($temp + ".alphaIsLuminance") 0;
+    // which objects to change: "all" (the whole scene) or "selected" (only the selected objects),
+    // set with the Options button
+    string $affect = "all";
+    if (`optionVar -exists "ModelUtilities_affect"`)
+        $affect = `optionVar -query "ModelUtilities_affect"`;
+    string $where = "";
+    if ($affect == "selected")
+        $where = " (selected objects only)";
+    // the materials to change: every lambert-type material (lambert, phong, blinn...) of the scene,
+    // or only the ones assigned to the selected objects. Maya's default material "lambert1" is left alone.
+    string $materials[];
+    if ($affect == "selected")
+    {
+        string $selection[] = `ls -selection -objectsOnly`;
+        string $shapes[];
+        if (size($selection))
+            $shapes = `ls -dag -noIntermediate -type "mesh" $selection`;
+        string $shape;
+        for ($shape in $shapes)
+        {
+            string $shadingGroups[] = `listConnections -type "shadingEngine" $shape`;
+            string $shadingGroup;
+            for ($shadingGroup in $shadingGroups)
+            {
+                string $shaders[] = `listConnections -source true -destination false ($shadingGroup + ".surfaceShader")`;
+                $materials = stringArrayCatenate($materials, $shaders);
+            }
+        }
+        if (size($materials))
+            $materials = `ls -type "lambert" $materials`;
+    }
+    else
+        $materials = `ls -type "lambert"`;
+    $materials = stringArrayRemoveDuplicates($materials);
+    $materials = stringArrayRemove({"lambert1"}, $materials);
+    // the file textures to change: all of them in the scene, or the ones used by the selected objects' materials
+    string $files[];
+    if ($affect == "selected")
+    {
+        if (size($materials))
+        {
+            string $history[] = `listHistory $materials`;
+            $files = `ls -type "file" $history`;
+        }
+    }
+    else
+        $files = `ls -type "file"`;
+    if (size($files) == 0)
+    {
+        warning ("TransparencyCorrect: no file textures found" + $where);
+        return 0;
+    }
+    string $file;
+    for ($file in $files)
+        setAttr ($file + ".alphaIsLuminance") 0;
+    // depth peeling: transparent faces are sorted correctly in the viewport
+    setAttr "hardwareRenderingGlobals.transparencyAlgorithm" 3;
+    print ("TransparencyCorrect: " + size($files) + " textures changed" + $where + "\n");
+    return size($files);
 }
-setAttr "hardwareRenderingGlobals.transparencyAlgorithm" 3;
+undoInfo -openChunk;
+catch(ModelUtilities_TransparencyCorrect());
+undoInfo -closeChunk;

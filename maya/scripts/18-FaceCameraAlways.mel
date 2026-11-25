@@ -1,0 +1,227 @@
+// FaceCameraAlways
+// Makes it so the selected polygon faces are always facing the camera: they are moved into new objects
+// (with their pivot at their center), with an aim constraint to the 'persp' camera.
+// By default each group of connected selected faces becomes one billboard (e.g. a quad made of 2 triangles);
+// the Options button can make one billboard per face instead, and pick another camera.
+// copies the given faces of an object into a new billboard object facing the camera
+global proc string ModelUtilities_makeBillboard(string $object, string $ids[], string $camera)
+{
+    // duplicate the whole object, without history, at the root of the scene
+    string $transform = $object;
+    if (`nodeType $transform` == "mesh")
+    {
+        string $parents[] = `listRelatives -parent -fullPath $transform`;
+        $transform = $parents[0];
+    }
+    string $copies[] = `duplicate -returnRootsOnly $transform`;
+    string $billboard = $copies[0];
+    delete -constructionHistory $billboard;
+    string $children[] = `listRelatives -children -type "transform" -fullPath $billboard`;
+    if (size($children))
+        delete $children;
+    string $shapes[] = `listRelatives -shapes -fullPath $billboard`;
+    string $intermediates[];
+    if (size($shapes))
+        $intermediates = `ls -intermediateObjects $shapes`;
+    if (size($intermediates))
+        delete $intermediates;
+    if (size(`listRelatives -parent $billboard`))
+    {
+        string $unparented[] = `parent -world $billboard`;
+        $billboard = $unparented[0];
+    }
+    string $name = match("[^|:]+$", $transform);
+    $billboard = `rename $billboard ($name + "_billboard#")`;
+
+    // delete every face of the copy except the given ones
+    int $faceCount[] = `polyEvaluate -face $billboard`;
+    int $keep[];
+    string $id;
+    for ($id in $ids)
+        $keep[size($keep)] = (int)$id;
+    $keep = sort($keep);
+    string $unwanted[];
+    int $start = 0;
+    int $k;
+    for ($k in $keep)
+    {
+        if ($k > $start)
+            $unwanted[size($unwanted)] = $billboard + ".f[" + $start + ":" + ($k - 1) + "]";
+        $start = $k + 1;
+    }
+    if ($start < $faceCount[0])
+        $unwanted[size($unwanted)] = $billboard + ".f[" + $start + ":" + ($faceCount[0] - 1) + "]";
+    if (size($unwanted))
+        delete $unwanted;
+    delete -constructionHistory $billboard;
+
+    // bake the transform into the vertices, so that they are in world space
+    makeIdentity -apply true -translate true -rotate true -scale true -normal 0 -preserveNormals true $billboard;
+    xform -objectSpace -pivots 0 0 0 $billboard;
+
+    // center and normal of the faces (world space)
+    float $positions[] = `xform -query -worldSpace -translation ($billboard + ".vtx[*]")`;
+    int $vertexCount = size($positions) / 3;
+    float $c[] = {0.0, 0.0, 0.0};
+    int $v;
+    for ($v = 0; $v < $vertexCount; $v++)
+    {
+        $c[0] = $c[0] + $positions[3 * $v] / $vertexCount;
+        $c[1] = $c[1] + $positions[3 * $v + 1] / $vertexCount;
+        $c[2] = $c[2] + $positions[3 * $v + 2] / $vertexCount;
+    }
+    float $n[] = {0.0, 0.0, 0.0};
+    string $faceInfo[] = `polyInfo -faceToVertex ($billboard + ".f[*]")`;
+    string $line;
+    for ($line in $faceInfo)
+    {
+        // "FACE 0: 4 5 7 6" -> area-weighted normal of the polygon (Newell's method)
+        string $tokens[];
+        tokenize($line, " :\t\n\r", $tokens);
+        int $corners = size($tokens) - 2;
+        int $i;
+        for ($i = 0; $i < $corners; $i++)
+        {
+            int $a = 3 * (int)$tokens[2 + $i];
+            int $b = 3 * (int)$tokens[2 + ($i + 1) % $corners];
+            $n[0] = $n[0] + ($positions[$a + 1] - $positions[$b + 1]) * ($positions[$a + 2] + $positions[$b + 2]);
+            $n[1] = $n[1] + ($positions[$a + 2] - $positions[$b + 2]) * ($positions[$a] + $positions[$b]);
+            $n[2] = $n[2] + ($positions[$a] - $positions[$b]) * ($positions[$a + 1] + $positions[$b + 1]);
+        }
+    }
+
+    // the billboard's axes: Z = the faces' normal, Y = as close to the world up (Y) as possible
+    vector $z = <<$n[0], $n[1], $n[2]>>;
+    if (mag($z) < 0.000001)
+    {
+        float $eye[] = `xform -query -worldSpace -translation $camera`;
+        $z = <<$eye[0] - $c[0], $eye[1] - $c[1], $eye[2] - $c[2]>>;
+    }
+    $z = unit($z);
+    vector $up = <<0.0, 1.0, 0.0>>;
+    if (abs(dot($z, $up)) > 0.999)
+        $up = <<0.0, 0.0, 1.0>>;
+    vector $x = unit(cross($up, $z));
+    vector $y = cross($z, $x);
+    float $x0 = $x.x; float $x1 = $x.y; float $x2 = $x.z;
+    float $y0 = $y.x; float $y1 = $y.y; float $y2 = $y.z;
+    float $z0 = $z.x; float $z1 = $z.y; float $z2 = $z.z;
+    float $m[] = {$x0, $x1, $x2, 0.0, $y0, $y1, $y2, 0.0, $z0, $z1, $z2, 0.0, $c[0], $c[1], $c[2], 1.0};
+    float $tx = -($c[0] * $x0 + $c[1] * $x1 + $c[2] * $x2);
+    float $ty = -($c[0] * $y0 + $c[1] * $y1 + $c[2] * $y2);
+    float $tz = -($c[0] * $z0 + $c[1] * $z1 + $c[2] * $z2);
+    float $inverse[] = {$x0, $y0, $z0, 0.0, $x1, $y1, $z1, 0.0, $x2, $y2, $z2, 0.0, $tx, $ty, $tz, 1.0};
+
+    // move the faces to the origin, facing +Z, and bake that into the vertices...
+    xform -matrix $inverse[0] $inverse[1] $inverse[2] $inverse[3] $inverse[4] $inverse[5] $inverse[6] $inverse[7]
+        $inverse[8] $inverse[9] $inverse[10] $inverse[11] $inverse[12] $inverse[13] $inverse[14] $inverse[15] $billboard;
+    makeIdentity -apply true -translate true -rotate true -scale true -normal 0 -preserveNormals true $billboard;
+    xform -objectSpace -pivots 0 0 0 $billboard;
+    // ...then move the object back in place: its pivot is the faces' center, and its Z axis their normal
+    xform -matrix $m[0] $m[1] $m[2] $m[3] $m[4] $m[5] $m[6] $m[7]
+        $m[8] $m[9] $m[10] $m[11] $m[12] $m[13] $m[14] $m[15] $billboard;
+
+    // always face the camera
+    aimConstraint -weight 1 -aimVector 0 0 1 -upVector 0 1 0 -worldUpType "vector" -worldUpVector 0 1 0
+        $camera $billboard;
+    return $billboard;
+}
+global proc int ModelUtilities_FaceCameraAlways()
+{
+    string $camera = "persp";
+    if (`optionVar -exists "ModelUtilities_billboardCamera"`)
+        $camera = `optionVar -query "ModelUtilities_billboardCamera"`;
+    int $perFace = 0;
+    if (`optionVar -exists "ModelUtilities_billboardPerFace"`)
+        $perFace = `optionVar -query "ModelUtilities_billboardPerFace"`;
+    if (!`objExists $camera`)
+        error ("FaceCameraAlways: there is no camera named '" + $camera + "' (pick one with the Options button)");
+
+    string $faces[] = `filterExpand -selectionMask 34 -expand true -fullPath true`;
+    if (size($faces) == 0)
+        error "FaceCameraAlways: select the polygon faces to turn into billboards first";
+
+    // the objects that the selected faces belong to
+    string $objects[];
+    string $face;
+    string $parts[];
+    for ($face in $faces)
+    {
+        tokenize($face, ".", $parts);
+        $objects[size($objects)] = $parts[0];
+    }
+    $objects = stringArrayRemoveDuplicates($objects);
+
+    string $billboards[];
+    string $object;
+    for ($object in $objects)
+    {
+        // the selected faces of this object
+        string $ids[];
+        clear($ids);
+        for ($face in $faces)
+        {
+            tokenize($face, ".", $parts);
+            if ($parts[0] == $object)
+                $ids[size($ids)] = match("[0-9]+", $parts[1]);
+        }
+
+        // the groups of faces that become one billboard each (face ids separated by spaces)
+        string $groups[];
+        clear($groups);
+        string $id;
+        if ($perFace)
+            $groups = $ids;
+        else
+        {
+            // gather the selected faces that are connected (share an edge)
+            string $remaining[] = $ids;
+            while (size($remaining))
+            {
+                string $island[] = {$remaining[0]};
+                int $previousSize = 0;
+                while (size($island) != $previousSize)
+                {
+                    $previousSize = size($island);
+                    string $islandFaces[];
+                    clear($islandFaces);
+                    for ($id in $island)
+                        $islandFaces[size($islandFaces)] = $object + ".f[" + $id + "]";
+                    string $edges[] = `polyListComponentConversion -fromFace -toEdge $islandFaces`;
+                    string $neighbors[] = `polyListComponentConversion -fromEdge -toFace $edges`;
+                    $neighbors = `ls -flatten $neighbors`;
+                    string $neighbor;
+                    for ($neighbor in $neighbors)
+                    {
+                        tokenize($neighbor, ".", $parts);
+                        string $neighborId = match("[0-9]+", $parts[1]);
+                        if (stringArrayContains($neighborId, $remaining) && !stringArrayContains($neighborId, $island))
+                            $island[size($island)] = $neighborId;
+                    }
+                }
+                $groups[size($groups)] = stringArrayToString($island, " ");
+                $remaining = stringArrayRemove($island, $remaining);
+            }
+        }
+
+        string $group;
+        for ($group in $groups)
+        {
+            string $groupIds[] = stringToStringArray($group, " ");
+            $billboards[size($billboards)] = ModelUtilities_makeBillboard($object, $groupIds, $camera);
+        }
+
+        // remove the faces from the original object
+        string $originalFaces[];
+        clear($originalFaces);
+        for ($id in $ids)
+            $originalFaces[size($originalFaces)] = $object + ".f[" + $id + "]";
+        delete $originalFaces;
+    }
+    select -replace $billboards;
+    print ("FaceCameraAlways: made " + size($billboards) + " billboards facing '" + $camera + "'\n");
+    return size($billboards);
+}
+undoInfo -openChunk;
+catch(ModelUtilities_FaceCameraAlways());
+undoInfo -closeChunk;
