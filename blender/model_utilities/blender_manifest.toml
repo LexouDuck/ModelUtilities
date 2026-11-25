@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+
+id = "model_utilities"
+version = "1.0.0"
+name = "Model Utilities"
+tagline = "One-click fixes for imported and low-poly models (port of the Maya shelf)"
+maintainer = "LexouDuck"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+tags = ["Material", "Mesh", "3D View"]

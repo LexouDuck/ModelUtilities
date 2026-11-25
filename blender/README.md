@@ -1,3 +1,55 @@
+## Model Utilities (Blender add-on)
+
+`model_utilities-1.0.0.zip` is the Blender port of the Maya shelf scripts 01 to 17 (Blender 4.2 or newer, including 5.x).
+The two screenshot scripts (18, 19) are the separate **TMR Icons** add-on below.
+
+### Installing it (once)
+
+In Blender: **Edit › Preferences › Get Extensions**, click the **⌄** menu in the top-right corner,
+choose **Install from Disk…** and pick `model_utilities-1.0.0.zip`. (Dragging the zip onto the Blender window does the same.)
+
+### Using it
+
+* **Sidebar**: press **N** in the 3D Viewport and open the **Model Utils** tab: all the buttons, grouped like the Maya shelf.
+* **Object menu** › *Model Utilities* (also in Edit Mode › **Face** menu), and the search (**F3**, type the script name).
+* **Affect**: *Whole Scene* (the default, like the Maya scripts) or *Selected* objects only.
+* Some buttons have options (Filter, UnTile, Merge, Soften/Harden, Face Camera): after clicking, open the **Adjust Last Operation** panel (bottom-left of the viewport, or **F9**).
+* Everything can be undone with **Ctrl+Z**.
+
+| Maya script         | Blender button         | What it does in Blender |
+|---------------------|------------------------|-------------------------|
+| AlphaNodeCorrect    | Alpha Node Correct     | Plugs each material's texture **Alpha** output into the shader's **Alpha**, and sets the material to *Dithered* (order-independent) transparency |
+| TransparencyCorrect | Transparency Correct   | Where the shader's Alpha is fed by a texture's **Color** (the "alpha is luminance" problem), feeds it from the texture's **Alpha** instead; sets *Dithered* transparency so faces sort correctly |
+| UnfilterAllTextures | Textures › Unfilter    | Image Texture nodes › Interpolation: **Closest** (pixelated) |
+| FilterAllTextures   | Textures › Filter      | Interpolation: **Linear** (option: Cubic, Smart) |
+| MirrorAllTextureUVs | Textures › Mirror      | Image Texture nodes › Extension: **Mirror** |
+| UnMirrorAllTextureUVs | Textures › UnMirror  | Mirror › **Repeat** |
+| TileAllTextureUVs   | Textures › Tile        | Extension: **Repeat** (mirrored textures stay mirrored) |
+| UnTileAllTextureUVs | Textures › UnTile      | Extension: **Clip** (nothing outside the 0-1 UV square; option: Extend) |
+| ShowVertexColors    | Vertex Colors › Show   | Multiplies each mesh's color attribute into its materials (or re-enables the ones hidden with *Hide*) |
+| HideVertexColors    | Vertex Colors › Hide   | Bypasses that multiply, including the one the glTF importer creates. *Show* puts it back |
+| NoShade             | Shading › No Shade     | Unlit materials: the texture × vertex colors as an Emission shader, transparency kept |
+| CelShade            | Shading › Cel Shade    | The same 3-step ramp (0.1 / 0.5 / 1.0) as toon lighting × the texture. EEVEE / Material Preview only (Cycles can't do it) |
+| *(new)*             | Shading › Restore Shading | Undoes No Shade / Cel Shade: the original shaders are kept in the materials and reconnected |
+| Incandesce          | Incandesce (Solid View) | Toggles the full-lit look in **Solid** mode (Flat lighting, textures shown) in every 3D Viewport |
+| MergeAllVertices    | Merge All Vertices     | Merge by distance, 0.001 (adjustable) |
+| SoftenAllEdges      | Soften Edges           | Smooth shading, no sharp edges |
+| HardenAllEdges      | Harden Edges           | Flat shading |
+| FaceCameraAlways    | Face Camera Always     | In Edit Mode: separates the selected faces into billboard objects (origin at their center) with a **Track To** constraint aimed at the scene camera |
+
+Notes:
+
+* **Soften / Harden** also clear the *custom normals* that importers (glTF, FBX...) bring in from the file by default,
+  since those override smooth/flat shading. Untick *Clear Custom Normals* in the operation panel to keep them.
+* **Face Camera Always**: by default each group of *connected* selected faces becomes one billboard
+  (so a sprite quad made of 2 triangles stays together); choose *Per Face* in the operation panel for the Maya behaviour.
+  Blender constraints can't target the viewport itself (Maya's `persp`), so the billboards face the **scene camera**:
+  look through it with **Numpad 0** to see them face you.
+* No Shade, Cel Shade and the vertex colour / alpha fixes work together in any order: e.g. running *Alpha Node Correct*
+  after *No Shade* updates the unlit material too.
+
+---
+
 ## Icons for The Models Resource (Blender add-on)
 
 `blender/tmr_icons/` is a small Blender add-on (Blender 4.2 or newer, including 5.x) that saves the submission icons in one click:
