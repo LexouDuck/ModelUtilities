@@ -24,6 +24,9 @@ Blender port of the Maya shelf scripts in maya/scripts/ (01 to 17). The two scre
     16 HardenAllEdges            -> harden_edges           flat shading
     17 FaceCameraAlways          -> face_camera            selected faces -> billboards tracking the camera
 
+Also (frame_range.py): the frame range follows the current action's length, automatically when the action
+changes, or with "Frame Range from Action" (Ctrl+Shift+P).
+
 By default the operators affect the whole scene, like the Maya scripts. Set "Affect" to
 "Selected" in the sidebar to limit them to the selected objects (and their materials).
 
@@ -37,6 +40,8 @@ import bmesh
 import bpy
 from bpy.props import EnumProperty, FloatProperty, BoolProperty
 from mathutils import Matrix, Vector
+
+from . import frame_range
 
 
 SHADE_PREFIX = "MU_Shade"   # nodes built by No Shade / Cel Shade (deleted by Restore Shading)
@@ -1021,6 +1026,7 @@ class MU_PT_panel(bpy.types.Panel):
         row = layout.row()
         row.prop(context.scene, "model_utilities_scope", expand=True)
         draw_buttons(layout, context)
+        frame_range.draw_sidebar(layout, context)
 
 
 class MU_MT_menu(bpy.types.Menu):
@@ -1075,9 +1081,11 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.VIEW3D_MT_object.append(draw_menu)
     bpy.types.VIEW3D_MT_edit_mesh_faces.append(draw_menu)
+    frame_range.register()
 
 
 def unregister():
+    frame_range.unregister()
     bpy.types.VIEW3D_MT_edit_mesh_faces.remove(draw_menu)
     bpy.types.VIEW3D_MT_object.remove(draw_menu)
     for cls in reversed(classes):

@@ -1,12 +1,13 @@
 ## Model Utilities (Blender add-on)
 
-`model_utilities-1.0.0.zip` is the Blender port of the Maya shelf scripts 01 to 17 (Blender 4.2 or newer, including 5.x).
+`model_utilities-1.1.0.zip` is the Blender port of the Maya shelf scripts 01 to 17 (Blender 4.2 or newer, including 5.x),
+plus a fix for the frame range when switching between animations (see [Animation frame range](#animation-frame-range)).
 The two screenshot scripts (18, 19) are the separate **TMR Icons** add-on below.
 
 ### Installing it (once)
 
 In Blender: **Edit › Preferences › Get Extensions**, click the **⌄** menu in the top-right corner,
-choose **Install from Disk…** and pick `model_utilities-1.0.0.zip`. (Dragging the zip onto the Blender window does the same.)
+choose **Install from Disk…** and pick `model_utilities-1.1.0.zip`. (Dragging the zip onto the Blender window does the same.)
 
 ### Using it
 
@@ -47,6 +48,26 @@ Notes:
   look through it with **Numpad 0** to see them face you.
 * No Shade, Cel Shade and the vertex colour / alpha fixes work together in any order: e.g. running *Alpha Node Correct*
   after *No Shade* updates the unlit material too.
+
+### Animation frame range
+
+Blender doesn't change the frame range when you switch to another animation (action), e.g. in the Dope Sheet's
+**Action Editor**, so a short animation plays with a long stretch of nothing after it (or a long one gets cut off).
+This add-on fixes that:
+
+* **Automatically**: whenever the active object's action changes (picking another one in the Action Editor or
+  Shape Key Editor, entering NLA tweak mode, ...), the frame range is set to that action's length.
+  If the timeline's **preview range** is on (the clock icon / **P**), the preview range is set instead, since that's what playback uses.
+  It doesn't happen when you only select another object, or when keying creates a brand-new action.
+  Turn it on/off with **Auto Frame Range from Action**: in the Timeline's **Playback** popover, the Dope Sheet's **View** menu,
+  the **Model Utils** sidebar tab, or the add-on's preferences.
+* **Manually**: **Frame Range from Action**, **Ctrl+Shift+P** (in any editor), or in the **View** menu of the Timeline,
+  Dope Sheet, Graph Editor and NLA, and in the **Model Utils** sidebar tab.
+  (The shortcut can be changed in **Edit › Preferences › Keymap**: search for "Frame Range from Action".)
+
+The length used is the action's **Manual Frame Range** when it has one (Action panel in the Dope Sheet sidebar),
+otherwise the range of its keyframes. In Blender 5.x an action can hold several objects' animation (and shape keys) as
+"slots": the range covers all of them, as they play together.
 
 ---
 
